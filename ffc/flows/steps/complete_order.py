@@ -23,7 +23,7 @@ class CompleteOrder(Step):
         agreement = context.order["agreement"]
         context.order = complete_order(
             client,
-            context.order_id,
+            context.order["id"],
             template,
             parameters=context.order["parameters"],
         )

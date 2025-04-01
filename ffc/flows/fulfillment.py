@@ -1,21 +1,48 @@
 import logging
 import traceback
 
+from swo.mpt.extensions.flows.pipeline import Pipeline
+
 from ffc.flows.error import strip_trace_id
-from ffc.flows.fulfillment.pipelines import (
-    change_order,
-    purchase,
-    terminate,
-)
 from ffc.flows.order import (
     OrderContext,
     is_change_order,
     is_purchase_order,
     is_termination_order,
 )
+from ffc.flows.steps import (
+    CheckDueDate,
+    CompleteOrder,
+    CreateSubscription,
+    ResetDueDate,
+    SetupDueDate,
+)
 from ffc.notifications import notify_unhandled_exception_in_teams
 
 logger = logging.getLogger(__name__)
+
+
+purchase = Pipeline(
+    SetupDueDate(),
+    CheckDueDate(),
+    CreateSubscription(),
+    ResetDueDate(),
+    CompleteOrder("purchase_order"),
+)
+
+change_order = Pipeline(
+    SetupDueDate(),
+    CheckDueDate(),
+    ResetDueDate(),
+    CompleteOrder("purchase_order"),
+)
+
+terminate = Pipeline(
+    SetupDueDate(),
+    CheckDueDate(),
+    ResetDueDate(),
+    CompleteOrder("purchase_order"),
+)
 
 
 def fulfill_order(client, order):
@@ -31,7 +58,7 @@ def fulfill_order(client, order):
         None
     """
     logger.info(f'Start processing {order["type"]} order {order["id"]}')
-    context = OrderContext.FromOrder(order)
+    context = OrderContext.from_order(order)
     try:
         if is_purchase_order(order):
             purchase.run(client, context)

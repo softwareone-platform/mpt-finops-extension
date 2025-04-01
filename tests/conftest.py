@@ -1,17 +1,10 @@
 import copy
-import json
-import signal
 from datetime import UTC, datetime
 
 import jwt
 import pytest
 import responses
-from django.conf import settings
-from rich.highlighter import ReprHighlighter as _ReprHighlighter
-from swo.mpt.extensions.core.events.dataclasses import Event
 from swo.mpt.extensions.runtime.djapp.conf import get_for_product
-
-PARAM_COMPANY_NAME = "ACME Inc"
 
 
 @pytest.fixture()
@@ -26,7 +19,40 @@ def requests_mocker():
 @pytest.fixture()
 def order_parameters_factory():
     def _order_parameters():
-        return []
+        return [
+            {
+                "id": "PAR-7208-0459-0004",
+                "externalId": "organizationName",
+                "name": "Organization Name",
+                "type": "SingleLineText",
+                "phase": "Order",
+                "displayValue": "ACME Inc",
+                "value": "ACME Inc",
+            },
+            {
+                "id": "PAR-7208-0459-0005",
+                "externalId": "adminContact",
+                "name": "Administrator",
+                "type": "Contact",
+                "phase": "Order",
+                "displayValue": "PL NN pl@example.com",
+                "value": {
+                    "firstName": "PL",
+                    "lastName": "NN",
+                    "email": "pl@example.com",
+                    "phone": None,
+                },
+            },
+            {
+                "id": "PAR-7208-0459-0006",
+                "externalId": "currency",
+                "name": "Currency",
+                "type": "DropDown",
+                "phase": "Order",
+                "displayValue": "USD",
+                "value": "USD",
+            },
+        ]
 
     return _order_parameters
 
@@ -34,7 +60,16 @@ def order_parameters_factory():
 @pytest.fixture()
 def fulfillment_parameters_factory():
     def _fulfillment_parameters():
-        return []
+        return [
+            {
+                "id": "PAR-7208-0459-0007",
+                "externalId": "dueDate",
+                "name": "Due Date",
+                "type": "Date",
+                "phase": "Fulfillment",
+                "value": "2025-01-01",
+            }
+        ]
 
     return _fulfillment_parameters
 
@@ -44,7 +79,7 @@ def items_factory():
     def _items(
         item_id=1,
         name="Awesome product",
-        external_vendor_id="65304578CA",
+        external_vendor_id="FINOPS-ITEM-00001",
     ):
         return [
             {
@@ -60,30 +95,7 @@ def items_factory():
 
 
 @pytest.fixture()
-def pricelist_items_factory():
-    def _items(
-        item_id=1,
-        external_vendor_id="65304578CA",
-        unit_purchase_price=1234.55,
-    ):
-        return [
-            {
-                "id": f"PRI-1234-1234-1234-{item_id:04d}",
-                "item": {
-                    "id": f"ITM-1234-1234-1234-{item_id:04d}",
-                    "externalIds": {
-                        "vendor": external_vendor_id,
-                    },
-                },
-                "unitPP": unit_purchase_price,
-            },
-        ]
-
-    return _items
-
-
-@pytest.fixture()
-def lines_factory(agreement, deployment_id: str = None):
+def lines_factory(agreement):
     agreement_id = agreement["id"].split("-", 1)[1]
 
     def _items(
@@ -92,9 +104,8 @@ def lines_factory(agreement, deployment_id: str = None):
         name="Awesome product",
         old_quantity=0,
         quantity=170,
-        external_vendor_id="65304578CA",
+        external_vendor_id="FINOPS-ITEM-00001",
         unit_purchase_price=1234.55,
-        deployment_id=deployment_id,
     ):
         line = {
             "item": {
@@ -112,8 +123,6 @@ def lines_factory(agreement, deployment_id: str = None):
         }
         if line_id:
             line["id"] = f"ALI-{agreement_id}-{line_id:04d}"
-        if deployment_id:
-            line["deploymentId"] = deployment_id
         return [line]
 
     return _items
@@ -280,6 +289,60 @@ def listing(buyer):
 
 
 @pytest.fixture()
+def buyer():
+    return {
+        "id": "BUY-3731-7971",
+        "href": "/accounts/buyers/BUY-3731-7971",
+        "name": "A buyer",
+        "icon": "/static/BUY-3731-7971/icon.png",
+        "address": {
+            "country": "US",
+            "state": "CA",
+            "city": "San Jose",
+            "addressLine1": "3601 Lyon St",
+            "addressLine2": "",
+            "postCode": "94123",
+        },
+        "contact": {
+            "firstName": "Cic",
+            "lastName": "Faraone",
+            "email": "francesco.faraone@softwareone.com",
+            "phone": {
+                "prefix": "+1",
+                "number": "4082954078",
+            },
+        },
+    }
+
+
+@pytest.fixture()
+def seller():
+    return {
+        "id": "SEL-9121-8944",
+        "href": "/accounts/sellers/SEL-9121-8944",
+        "name": "SWO US",
+        "icon": "/static/SEL-9121-8944/icon.png",
+        "address": {
+            "country": "US",
+            "region": "CA",
+            "city": "San Jose",
+            "addressLine1": "3601 Lyon St",
+            "addressLine2": "",
+            "postCode": "94123",
+        },
+        "contact": {
+            "firstName": "Francesco",
+            "lastName": "Faraone",
+            "email": "francesco.faraone@softwareone.com",
+            "phone": {
+                "prefix": "+1",
+                "number": "4082954078",
+            },
+        },
+    }
+
+
+@pytest.fixture()
 def template():
     return {
         "id": "TPL-1234-1234-4321",
@@ -357,12 +420,12 @@ def agreement(buyer, licensee, listing):
 
 @pytest.fixture()
 def order_factory(
+    settings,
     agreement,
     order_parameters_factory,
     fulfillment_parameters_factory,
     lines_factory,
     status="Processing",
-    deployment_id="",
 ):
     """
     Marketplace platform order for tests.
@@ -378,7 +441,6 @@ def order_factory(
         external_ids=None,
         status=status,
         template=None,
-        deployment_id=deployment_id,
     ):
         order_parameters = (
             order_parameters_factory() if order_parameters is None else order_parameters
@@ -389,7 +451,7 @@ def order_factory(
             else fulfillment_parameters
         )
 
-        lines = lines_factory(deployment_id=deployment_id) if lines is None else lines
+        lines = lines_factory() if lines is None else lines
         subscriptions = [] if subscriptions is None else subscriptions
 
         order = {
@@ -417,6 +479,14 @@ def order_factory(
                 },
                 "updated": None,
             },
+            "product": {
+                "id": settings.MPT_PRODUCTS_IDS[0],
+                "href": "/catalog/products/PRD-7208-0459",
+                "name": "SoftwareOne FinOps for Cloud",
+                "externalIds": {},
+                "icon": "/v1/catalog/products/PRD-7208-0459/icon",
+                "status": "Published",
+            },
         }
         if external_ids:
             order["externalIds"] = external_ids
@@ -428,62 +498,32 @@ def order_factory(
 
 
 @pytest.fixture()
-def order(order_factory):
+def processing_purchase_order(order_factory):
     return order_factory()
 
 
 @pytest.fixture()
-def buyer():
-    return {
-        "id": "BUY-3731-7971",
-        "href": "/accounts/buyers/BUY-3731-7971",
-        "name": "A buyer",
-        "icon": "/static/BUY-3731-7971/icon.png",
-        "address": {
-            "country": "US",
-            "state": "CA",
-            "city": "San Jose",
-            "addressLine1": "3601 Lyon St",
-            "addressLine2": "",
-            "postCode": "94123",
-        },
-        "contact": {
-            "firstName": "Cic",
-            "lastName": "Faraone",
-            "email": "francesco.faraone@softwareone.com",
-            "phone": {
-                "prefix": "+1",
-                "number": "4082954078",
-            },
-        },
-    }
+def first_attempt_processing_purchase_order(processing_purchase_order):
+    for param in processing_purchase_order["parameters"]["fulfillment"]:
+        del param["value"]
+
+    return processing_purchase_order
 
 
 @pytest.fixture()
-def seller():
-    return {
-        "id": "SEL-9121-8944",
-        "href": "/accounts/sellers/SEL-9121-8944",
-        "name": "SWO US",
-        "icon": "/static/SEL-9121-8944/icon.png",
-        "address": {
-            "country": "US",
-            "region": "CA",
-            "city": "San Jose",
-            "addressLine1": "3601 Lyon St",
-            "addressLine2": "",
-            "postCode": "94123",
-        },
-        "contact": {
-            "firstName": "Francesco",
-            "lastName": "Faraone",
-            "email": "francesco.faraone@softwareone.com",
-            "phone": {
-                "prefix": "+1",
-                "number": "4082954078",
-            },
-        },
+def failed_purchase_order(order_factory):
+    failed_order = order_factory(status="Failed")
+    failed_order["statusNotes"] = {
+        "id": "EXT001",
+        "message": "Order can't be processed. Failure reason: error",
     }
+
+    return failed_order
+
+
+@pytest.fixture()
+def completed_purchase_order(order_factory, subscriptions_factory):
+    return order_factory(status="Completed", subscriptions=subscriptions_factory())
 
 
 @pytest.fixture()
@@ -533,28 +573,6 @@ def mpt_error_factory():
 
 
 @pytest.fixture()
-def airtable_error_factory():
-    """
-    Generate an error message returned by the Airtable API.
-    """
-
-    def _airtable_error(
-        message,
-        error_type="INVALID_REQUEST_UNKNOWN",
-    ):
-        error = {
-            "error": {
-                "type": error_type,
-                "message": message,
-            }
-        }
-
-        return error
-
-    return _airtable_error
-
-
-@pytest.fixture()
 def mpt_list_response():
     def _wrap_response(objects_list):
         return {
@@ -590,218 +608,6 @@ def extension_settings(settings):
 
 
 @pytest.fixture()
-def mocked_setup_master_signal_handler():
-    signal_handler = signal.getsignal(signal.SIGINT)
-
-    def handler(signum, frame):
-        print("Signal handler called with signal", signum)
-        signal.signal(signal.SIGINT, signal_handler)
-
-    signal.signal(signal.SIGINT, handler)
-
-
-@pytest.fixture()
-def mock_gradient_result():
-    return [
-        "#00C9CD",
-        "#07B7D2",
-        "#0FA5D8",
-        "#1794DD",
-        "#1F82E3",
-        "#2770E8",
-        "#2F5FEE",
-        "#374DF3",
-        "#3F3BF9",
-        "#472AFF",
-    ]
-
-
-@pytest.fixture()
-def mock_runtime_master_options():
-    return {
-        "color": True,
-        "debug": False,
-        "reload": True,
-        "component": "all",
-    }
-
-
-@pytest.fixture()
-def mock_swoext_commands():
-    return (
-        "swo.mpt.extensions.runtime.commands.run.run",
-        "swo.mpt.extensions.runtime.commands.django.django",
-    )
-
-
-@pytest.fixture()
-def mock_dispatcher_event():
-    return {
-        "type": "event",
-        "id": "event-id",
-    }
-
-
-@pytest.fixture()
-def mock_workers_options():
-    return {
-        "color": False,
-        "debug": False,
-        "reload": False,
-        "component": "all",
-    }
-
-
-@pytest.fixture()
-def mock_gunicorn_logging_config():
-    return {
-        "version": 1,
-        "disable_existing_loggers": False,
-        "formatters": {
-            "verbose": {
-                "format": "{asctime} {name} {levelname} (pid: {process}) {message}",
-                "style": "{",
-            },
-            "rich": {
-                "format": "%(message)s",
-            },
-        },
-        "handlers": {
-            "console": {
-                "class": "logging.StreamHandler",
-                "formatter": "verbose",
-            },
-            "rich": {
-                "class": "rich.logging.RichHandler",
-                "formatter": "rich",
-                "log_time_format": lambda x: x.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
-                "rich_tracebacks": True,
-            },
-        },
-        "root": {
-            "handlers": ["rich"],
-            "level": "INFO",
-        },
-        "loggers": {
-            "gunicorn.access": {
-                "handlers": ["rich"],
-                "level": "INFO",
-                "propagate": False,
-            },
-            "gunicorn.error": {
-                "handlers": ["rich"],
-                "level": "INFO",
-                "propagate": False,
-            },
-            "swo.mpt": {},
-        },
-    }
-
-
-@pytest.fixture()
-def mock_wrap_event():
-    return Event("evt-id", "orders", {"id": "ORD-1111-1111-1111"})
-
-
-@pytest.fixture()
-def mock_meta_with_pagination_has_more_pages():
-    return {
-        "$meta": {
-            "pagination": {
-                "offset": 0,
-                "limit": 10,
-                "total": 12,
-            },
-        },
-    }
-
-
-@pytest.fixture()
-def mock_meta_with_pagination_has_no_more_pages():
-    return {
-        "$meta": {
-            "pagination": {
-                "offset": 0,
-                "limit": 10,
-                "total": 4,
-            },
-        },
-    }
-
-
-@pytest.fixture()
-def mock_logging_account_prefixes():
-    return ("ACC", "BUY", "LCE", "MOD", "SEL", "USR", "AUSR", "UGR")
-
-
-@pytest.fixture()
-def mock_logging_catalog_prefixes():
-    return (
-        "PRD",
-        "ITM",
-        "IGR",
-        "PGR",
-        "MED",
-        "DOC",
-        "TCS",
-        "TPL",
-        "WHO",
-        "PRC",
-        "LST",
-        "AUT",
-        "UNT",
-    )
-
-
-@pytest.fixture()
-def mock_logging_commerce_prefixes():
-    return ("AGR", "ORD", "SUB", "REQ")
-
-
-@pytest.fixture()
-def mock_logging_aux_prefixes():
-    return ("FIL", "MSG")
-
-
-@pytest.fixture()
-def mock_logging_all_prefixes(
-    mock_logging_account_prefixes,
-    mock_logging_catalog_prefixes,
-    mock_logging_commerce_prefixes,
-    mock_logging_aux_prefixes,
-):
-    return (
-        *mock_logging_account_prefixes,
-        *mock_logging_catalog_prefixes,
-        *mock_logging_commerce_prefixes,
-        *mock_logging_aux_prefixes,
-    )
-
-
-@pytest.fixture()
-def mock_highlights(mock_logging_all_prefixes):
-    return _ReprHighlighter.highlights + [
-        rf"(?P<mpt_id>(?:{'|'.join(mock_logging_all_prefixes)})(?:-\d{{4}})*)"
-    ]
-
-
-@pytest.fixture()
-def mock_settings_product_ids():
-    return ",".join(settings.MPT_PRODUCTS_IDS)
-
-
-@pytest.fixture()
-def mock_ext_expected_environment_values(
-    mock_env_webhook_secret,
-    mock_email_notification_sender,
-):
-    return {
-        "WEBHOOKS_SECRETS": json.loads(mock_env_webhook_secret),
-        "EMAIL_NOTIFICATION_SENDER": mock_email_notification_sender,
-    }
-
-
-@pytest.fixture()
 def mock_env_webhook_secret():
     return '{ "webhook_secret": "WEBHOOK_SECRET" }'
 
@@ -812,37 +618,5 @@ def mock_email_notification_sender():
 
 
 @pytest.fixture()
-def mock_valid_env_values(
-    mock_env_webhook_secret,
-    mock_email_notification_sender,
-):
-    return {
-        "EXT_WEBHOOKS_SECRETS": mock_env_webhook_secret,
-        "EXT_EMAIL_NOTIFICATION_SENDER": mock_email_notification_sender,
-    }
-
-
-@pytest.fixture()
-def mock_worker_initialize(mocker):
-    return mocker.patch("swo.mpt.extensions.runtime.workers.initialize")
-
-
-@pytest.fixture()
-def mock_worker_call_command(mocker):
-    return mocker.patch("swo.mpt.extensions.runtime.workers.call_command")
-
-
-@pytest.fixture()
-def mock_get_order_for_producer(order, order_factory):
-    order = order_factory()
-
-    return {
-        "data": [order],
-        "$meta": {
-            "pagination": {
-                "offset": 0,
-                "limit": 10,
-                "total": 1,
-            },
-        },
-    }
+def mocked_next_step(mocker):
+    return mocker.MagicMock()
