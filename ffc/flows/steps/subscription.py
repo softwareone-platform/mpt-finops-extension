@@ -18,7 +18,7 @@ class CreateSubscription(Step):
                 subscription = {
                     "name": f"Subscription for {line['item']['name']}",
                     "parameters": {},
-                    "externalIds": {},
+                    "externalIds": {"vendor": context.organization["id"]},
                     "lines": [
                         {
                             "id": line["id"],

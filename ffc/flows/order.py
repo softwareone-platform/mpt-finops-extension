@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from swo.mpt.extensions.flows.context import Context as BaseContext
 
@@ -9,8 +9,6 @@ MPT_ORDER_STATUS_QUERYING = "Querying"
 MPT_ORDER_STATUS_COMPLETED = "Completed"
 
 ORDER_TYPE_PURCHASE = "Purchase"
-ORDER_TYPE_CHANGE = "Change"
-ORDER_TYPE_TERMINATION = "Termination"
 
 
 def is_purchase_order(order):
@@ -25,17 +23,11 @@ def is_purchase_order(order):
     return order["type"] == ORDER_TYPE_PURCHASE
 
 
-def is_change_order(order):
-    return order["type"] == ORDER_TYPE_CHANGE
-
-
-def is_termination_order(order):
-    return order["type"] == ORDER_TYPE_TERMINATION
-
-
 @dataclass
 class OrderContext(BaseContext):
     order: dict
+    employee: dict = field(init=False, default=None)
+    organization: dict = field(init=False, default=None)
 
     def __str__(self):
         return f"{(self.type or '-').upper()} {self.order['id']}"

@@ -1,14 +1,8 @@
 import logging
 import traceback
 
-from ffc.flows.error import (
-    strip_trace_id,
-)
-from ffc.flows.order import (
-    is_change_order,
-    is_purchase_order,
-    is_termination_order,
-)
+from ffc.flows.error import strip_trace_id
+from ffc.flows.order import is_purchase_order
 from ffc.notifications import notify_unhandled_exception_in_teams
 
 logger = logging.getLogger(__name__)
@@ -29,10 +23,6 @@ def validate_order(client, order):
         has_errors = False
 
         if is_purchase_order(order):
-            pass
-        elif is_change_order(order):
-            pass
-        elif is_termination_order(order):
             pass
 
         logger.info(

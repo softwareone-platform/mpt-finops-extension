@@ -6,15 +6,17 @@ from swo.mpt.extensions.flows.pipeline import Pipeline
 from ffc.flows.error import strip_trace_id
 from ffc.flows.order import (
     OrderContext,
-    is_change_order,
     is_purchase_order,
-    is_termination_order,
 )
 from ffc.flows.steps import (
     CheckDueDate,
+    CheckOrderParameters,
     CompleteOrder,
+    CreateEmployee,
+    CreateOrganization,
     CreateSubscription,
     ResetDueDate,
+    SetupAgreementExternalId,
     SetupDueDate,
 )
 from ffc.notifications import notify_unhandled_exception_in_teams
@@ -25,21 +27,11 @@ logger = logging.getLogger(__name__)
 purchase = Pipeline(
     SetupDueDate(),
     CheckDueDate(),
+    CheckOrderParameters(),
+    CreateEmployee(),
+    CreateOrganization(),
+    SetupAgreementExternalId(),
     CreateSubscription(),
-    ResetDueDate(),
-    CompleteOrder("purchase_order"),
-)
-
-change_order = Pipeline(
-    SetupDueDate(),
-    CheckDueDate(),
-    ResetDueDate(),
-    CompleteOrder("purchase_order"),
-)
-
-terminate = Pipeline(
-    SetupDueDate(),
-    CheckDueDate(),
     ResetDueDate(),
     CompleteOrder("purchase_order"),
 )
@@ -62,10 +54,6 @@ def fulfill_order(client, order):
     try:
         if is_purchase_order(order):
             purchase.run(client, context)
-        elif is_change_order(order):
-            change_order.run(client, context)
-        elif is_termination_order(order):  # pragma: no branch
-            terminate.run(client, context)
     except Exception:
         notify_unhandled_exception_in_teams(
             "fulfillment",

@@ -459,9 +459,7 @@ def order_factory(
             "error": None,
             "href": "/commerce/orders/ORD-0792-5000-2253-4210",
             "agreement": agreement,
-            "authorization": {
-                "id": "AUT-1234-4567",
-            },
+            "authorization": {"id": "AUT-1234-4567", "currency": "USD,"},
             "type": order_type,
             "status": status,
             "clientReferenceNumber": None,
@@ -524,6 +522,11 @@ def failed_purchase_order(order_factory):
 @pytest.fixture()
 def completed_purchase_order(order_factory, subscriptions_factory):
     return order_factory(status="Completed", subscriptions=subscriptions_factory())
+
+
+@pytest.fixture()
+def querying_purchase_order(order_factory):
+    return order_factory(status="Querying")
 
 
 @pytest.fixture()
@@ -620,3 +623,49 @@ def mock_email_notification_sender():
 @pytest.fixture()
 def mocked_next_step(mocker):
     return mocker.MagicMock()
+
+
+@pytest.fixture()
+def ffc_organization():
+    return {
+        "name": "Nimbus Nexus Inc.",
+        "currency": "EUR",
+        "billing_currency": "USD",
+        "operations_external_id": "AGR-9876-5534-9172",
+        "events": {
+            "created": {
+                "at": "2025-04-03T15:04:25.894Z",
+                "by": {"id": "string", "type": "user", "name": "Barack Obama"},
+            },
+            "updated": {
+                "at": "2025-04-03T15:04:25.894Z",
+                "by": {"id": "string", "type": "user", "name": "Barack Obama"},
+            },
+            "deleted": {
+                "at": "2025-04-03T15:04:25.894Z",
+                "by": {"id": "string", "type": "user", "name": "Barack Obama"},
+            },
+        },
+        "id": "FORG-1234-1234-1234",
+        "linked_organization_id": "ee7ebfaf-a222-4209-aecc-67861694a488",
+        "status": "active",
+        "expenses_info": {
+            "limit": "10,000.00",
+            "expenses_last_month": "4,321.26",
+            "expenses_this_month": "2,111.49",
+            "expenses_this_month_forecast": "5,001.12",
+            "possible_monthly_saving": "4.66",
+        },
+    }
+
+
+@pytest.fixture()
+def ffc_employee():
+    return {
+        "email": "test@exaple.com",
+        "display_name": "Tor James Parker",
+        "created_at": "2025-04-04T09:11:36.291Z",
+        "last_login": "2025-04-04T09:11:36.291Z",
+        "roles_count": 0,
+        "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    }

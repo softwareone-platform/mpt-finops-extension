@@ -13,6 +13,11 @@ logger = logging.getLogger(__name__)
 
 
 class SetupDueDate(Step):
+    """
+    Sets Due date for processing order and sends email
+    if it is first attempt to process the order
+    """
+
     def __call__(self, client, context, next_step):
         due_date = get_due_date(context.order)
 
@@ -44,6 +49,10 @@ class SetupDueDate(Step):
 
 
 class CheckDueDate(Step):
+    """
+    Check due date, if it is expired - fail the order
+    """
+
     def __call__(self, client, context, next_step):
         due_date = get_due_date(context.order)
         if date.today() > due_date:
@@ -62,6 +71,12 @@ class CheckDueDate(Step):
 
 
 class ResetDueDate(Step):
+    """
+    In order not to move due date parameter to the next order
+    through agreement parameter
+    reset it to None before complete the order
+    """
+
     def __call__(self, client, context, next_step):
         context.order = set_due_date(context.order, None)
         next_step(client, context)
