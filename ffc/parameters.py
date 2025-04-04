@@ -10,6 +10,10 @@ PARAM_CONTACT = "contact"
 
 PARAM_DUE_DATE = "dueDate"
 
+PARAM_ORGANIZATION_NAME = "organizationName"
+PARAM_CURRENCY = "currency"
+PARAM_ADMIN_CONTACT = "adminContact"
+
 
 def get_parameter(parameter_phase, source, param_external_id):
     """
