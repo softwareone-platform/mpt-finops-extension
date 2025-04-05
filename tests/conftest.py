@@ -530,6 +530,17 @@ def querying_purchase_order(order_factory):
 
 
 @pytest.fixture()
+def draft_purchase_valid_order(order_factory):
+    return order_factory(status="Draft")
+
+
+@pytest.fixture()
+def draft_purchase_invalid_order(draft_purchase_valid_order):
+    draft_purchase_valid_order["parameters"]["ordering"][0]["value"] = None
+    return draft_purchase_valid_order
+
+
+@pytest.fixture()
 def webhook(settings):
     return {
         "id": "WH-123-123",

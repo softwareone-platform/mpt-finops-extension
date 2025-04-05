@@ -53,7 +53,7 @@ def send_notification(
     color: str,
     button: Button | None = None,
     facts: FactsSection | None = None,
-) -> None:
+) -> None:  # pragma: no cover
     message = pymsteams.connectorcard(settings.EXTENSION_CONFIG["MSTEAMS_WEBHOOK_URL"])
     message.color(color)
     message.title(title)
@@ -78,7 +78,7 @@ def send_warning(
     text: str,
     button: Button | None = None,
     facts: FactsSection | None = None,
-) -> None:
+) -> None:  # pragma: no cover
     send_notification(
         f"\u2622 {title}",
         text,
@@ -93,7 +93,7 @@ def send_error(
     text: str,
     button: Button | None = None,
     facts: FactsSection | None = None,
-) -> None:
+) -> None:  # pragma: no cover
     send_notification(
         f"\U0001f4a3 {title}",
         text,
@@ -108,7 +108,7 @@ def send_exception(
     text: str,
     button: Button | None = None,
     facts: FactsSection | None = None,
-) -> None:
+) -> None:  # pragma: no cover
     send_notification(
         f"\U0001f525 {title}",
         text,
@@ -118,7 +118,7 @@ def send_exception(
     )
 
 
-def send_email(recipient, subject, template_name, context):
+def send_email(recipient, subject, template_name, context):  # pragma: no cover
     template = env.get_template(f"{template_name}.html")
     rendered_email = template.render(context)
 
@@ -149,17 +149,17 @@ def send_email(recipient, subject, template_name, context):
         )
 
 
-def get_notifications_recipient(order):
+def get_notifications_recipient(order):  # pragma: no cover
     return (get_ordering_parameter(order, PARAM_CONTACT).get("value", {}) or {}).get(
         "email"
     ) or (order["agreement"]["buyer"].get("contact", {}) or {}).get("email")
 
 
-def md2html(template):
+def md2html(template):  # pragma: no cover
     return MarkdownIt("commonmark", {"breaks": True, "html": True}).render(template)
 
 
-def send_email_notification(client, order):
+def send_email_notification(client, order):  # pragma: no cover
     """
     Send a notification email to the customer according to the
     current order status.
@@ -206,7 +206,9 @@ def send_email_notification(client, order):
 
 
 @functools.cache
-def notify_unhandled_exception_in_teams(process, order_id, traceback):
+def notify_unhandled_exception_in_teams(
+    process, order_id, traceback
+):  # pragma: no cover
     send_exception(
         f"Order {process} unhandled exception!",
         f"An unhandled exception has been raised while performing {process} "

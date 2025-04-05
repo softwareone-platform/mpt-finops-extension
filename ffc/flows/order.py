@@ -26,6 +26,7 @@ def is_purchase_order(order):
 @dataclass
 class OrderContext(BaseContext):
     order: dict
+    validation_succeeded: bool = True
     employee: dict = field(init=False, default=None)
     organization: dict = field(init=False, default=None)
 
