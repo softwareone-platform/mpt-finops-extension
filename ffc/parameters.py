@@ -1,11 +1,18 @@
 import copy
 import functools
+from datetime import datetime
 
 from ffc.utils import find_first
 
 PARAM_PHASE_ORDERING = "ordering"
 PARAM_PHASE_FULFILLMENT = "fulfillment"
 PARAM_CONTACT = "contact"
+
+PARAM_DUE_DATE = "dueDate"
+
+PARAM_ORGANIZATION_NAME = "organizationName"
+PARAM_CURRENCY = "currency"
+PARAM_ADMIN_CONTACT = "adminContact"
 
 
 def get_parameter(parameter_phase, source, param_external_id):
@@ -55,4 +62,34 @@ def set_ordering_parameter_error(order, param_external_id, error, required=True)
         "hidden": False,
         "required": required,
     }
+    return updated_order
+
+
+def get_due_date(order):
+    """
+    Returns Due Date parameter value or None
+    """
+    due_date_parameter = get_fulfillment_parameter(order, PARAM_DUE_DATE)
+
+    if due_date_parameter.get("value", ""):
+        return datetime.strptime(due_date_parameter["value"], "%Y-%m-%d").date()
+
+    return None
+
+
+def set_due_date(order, due_date):
+    """
+    Set Due Date parameter
+    Args:
+        order (dict): Order to be updated
+        due_date (date|None): due date
+    """
+    updated_order = copy.deepcopy(order)
+
+    if due_date:
+        due_date = due_date.strftime("%Y-%m-%d")
+
+    param = get_fulfillment_parameter(updated_order, PARAM_DUE_DATE)
+    param["value"] = due_date
+
     return updated_order
