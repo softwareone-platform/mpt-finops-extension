@@ -85,6 +85,7 @@ def test_purchase_order(
                     "phase": "Order",
                     "type": "SingleLineText",
                     "value": "ACME Inc",
+                    "error": None,
                 },
                 {
                     "displayValue": "PL NN pl@example.com",
@@ -99,6 +100,7 @@ def test_purchase_order(
                         "lastName": "NN",
                         "phone": None,
                     },
+                    "error": None,
                 },
                 {
                     "displayValue": "USD",
@@ -108,6 +110,7 @@ def test_purchase_order(
                     "phase": "Order",
                     "type": "DropDown",
                     "value": "USD",
+                    "error": None,
                 },
             ],
         },

@@ -1,3 +1,5 @@
+from copy import deepcopy
+
 from swo.mpt.client.mpt import fail_order
 
 from ffc.notifications import send_email_notification
@@ -24,3 +26,9 @@ def switch_order_to_failed(client, order, status_notes):
     order["agreement"] = agreement
     send_email_notification(client, order)
     return order
+
+
+def reset_order_error(order):
+    updated_order = deepcopy(order)
+    updated_order["error"] = None
+    return updated_order

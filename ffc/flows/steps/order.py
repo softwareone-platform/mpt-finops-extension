@@ -14,12 +14,14 @@ from ffc.flows.error import (
     ERR_ORGANIZATION_NAME,
 )
 from ffc.flows.order import MPT_ORDER_STATUS_COMPLETED, MPT_ORDER_STATUS_QUERYING
+from ffc.flows.steps.utils import reset_order_error
 from ffc.notifications import send_email_notification
 from ffc.parameters import (
     PARAM_ADMIN_CONTACT,
     PARAM_CURRENCY,
     PARAM_ORGANIZATION_NAME,
     get_ordering_parameter,
+    reset_ordering_parameters_error,
     set_ordering_parameter_error,
 )
 
@@ -73,8 +75,8 @@ class CompleteOrder(Step):
 
 class CheckOrderParameters(Step):
     """
-    Check if all required parameters are submitted, if not
-    query order
+    Check if all required parameters are submitted
+    If not sets `validation_succeeded` to False
     """
 
     def __call__(self, client, context, next_step):
@@ -84,7 +86,6 @@ class CheckOrderParameters(Step):
             PARAM_ADMIN_CONTACT: ERR_ADMIN_CONTACT,
         }
         order = context.order
-        empty_parameters = []
 
         for param_name in [
             PARAM_ORGANIZATION_NAME,
@@ -96,9 +97,20 @@ class CheckOrderParameters(Step):
                 order = set_ordering_parameter_error(
                     order, param_name, errors[param_name]
                 )
-                empty_parameters.append(param_name)
+                context.validation_succeeded = False
 
-        if empty_parameters:
+        next_step(client, context)
+
+
+class QueryIfInvalid(Step):
+    """
+    Check if `validation_succeeded` context parameter is True
+    If not - query order
+    """
+
+    def __call__(self, client, context, next_step):
+        order = context.order
+        if not context.validation_succeeded:
             template = get_product_template_or_default(
                 client,
                 context.product_id,
@@ -109,9 +121,22 @@ class CheckOrderParameters(Step):
             order["agreement"] = agreement
             context.order = order
             logger.info(
-                f"{context}: parameters {', '.join(empty_parameters)} are empty, move to querying",
+                f"{context}: ordering parameters are invalid, move to querying",
             )
             send_email_notification(client, order)
             return
+
+        next_step(client, context)
+
+
+class ResetOrderErrors(Step):
+    """
+    Reset order errors and parameter errors. Is used before processing
+    to not to show errors during procesing or after validation is succeseed
+    """
+
+    def __call__(self, client, context, next_step):
+        context.order = reset_order_error(context.order)
+        context.order = reset_ordering_parameters_error(context.order)
 
         next_step(client, context)

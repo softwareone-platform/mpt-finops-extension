@@ -1,8 +1,11 @@
 import logging
 import traceback
 
+from swo.mpt.extensions.flows.pipeline import Pipeline
+
 from ffc.flows.error import strip_trace_id
-from ffc.flows.order import is_purchase_order
+from ffc.flows.order import OrderContext, is_purchase_order
+from ffc.flows.steps.order import CheckOrderParameters
 from ffc.notifications import notify_unhandled_exception_in_teams
 
 logger = logging.getLogger(__name__)
@@ -23,7 +26,7 @@ def validate_order(client, order):
         has_errors = False
 
         if is_purchase_order(order):
-            pass
+            has_errors, order = validate_purchase_order(client, order)
 
         logger.info(
             f"Validation of order {order['id']} succeeded "
@@ -37,3 +40,12 @@ def validate_order(client, order):
             strip_trace_id(traceback.format_exc()),
         )
         raise
+
+
+def validate_purchase_order(client, order):
+    pipeline = Pipeline(
+        CheckOrderParameters(),
+    )
+    context = OrderContext(order=order)
+    pipeline.run(client, context)
+    return not context.validation_succeeded, context.order

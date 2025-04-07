@@ -93,3 +93,21 @@ def set_due_date(order, due_date):
     param["value"] = due_date
 
     return updated_order
+
+
+def reset_ordering_parameters_error(order):
+    """
+    Reset errors for all ordering parameters
+
+    Args:
+        order (dict): The order that contains the parameter.
+
+    Returns:
+        dict: The order updated.
+    """
+    updated_order = copy.deepcopy(order)
+
+    for param in updated_order["parameters"][PARAM_PHASE_ORDERING]:
+        param["error"] = None
+
+    return updated_order

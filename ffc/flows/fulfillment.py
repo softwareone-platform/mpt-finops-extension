@@ -15,7 +15,9 @@ from ffc.flows.steps import (
     CreateEmployee,
     CreateOrganization,
     CreateSubscription,
+    QueryIfInvalid,
     ResetDueDate,
+    ResetOrderErrors,
     SetupAgreementExternalId,
     SetupDueDate,
 )
@@ -25,9 +27,11 @@ logger = logging.getLogger(__name__)
 
 
 purchase = Pipeline(
+    ResetOrderErrors(),
     SetupDueDate(),
     CheckDueDate(),
     CheckOrderParameters(),
+    QueryIfInvalid(),
     CreateEmployee(),
     CreateOrganization(),
     SetupAgreementExternalId(),
