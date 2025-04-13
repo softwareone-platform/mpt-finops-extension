@@ -1,5 +1,4 @@
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=softwareone-platform_swo-finops-extension&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=softwareone-platform_swo-finops-extension) [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=softwareone-platform_swo-extension&metric=coverage)](https://sonarcloud.io/summary/new_code?id=softwareone-platform_swo-finops-extension)
-
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=softwareone-platform_mpt-finops-extension&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=softwareone-platform_mpt-finops-extension) [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=softwareone-platform_mpt-finops-extension&metric=coverage)](https://sonarcloud.io/summary/new_code?id=softwareone-platform_mpt-finops-extension)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 
 # SoftwareONE FinOps for Cloud Marketplace Extension
