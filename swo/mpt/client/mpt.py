@@ -3,7 +3,6 @@ from functools import cache
 
 from django.conf import settings
 from swo.mpt.client.errors import wrap_http_error, ERR_EXT_UNHANDLED_EXCEPTION
-from swo.mpt.client.utils import find_first
 
 logger = logging.getLogger(__name__)
 
@@ -131,25 +130,3 @@ def update_agreement(mpt_client, agreement_id, **kwargs):
     )
     response.raise_for_status()
     return response.json()
-
-
-def get_subscription_by_line_and_item_id(subscriptions, item_id, line_id):
-    """
-    Return a subscription by line id and sku.
-
-    Args:
-        subscriptions (list): a list of subscription obects.
-        vendor_external_id (str): the item SKU
-        line_id (str): the id of the order line that should contain the given SKU.
-
-    Returns:
-        dict: the corresponding subscription if it is found, None otherwise.
-    """
-    for subscription in subscriptions:
-        item = find_first(
-            lambda x: x["id"] == line_id and x["item"]["id"] == item_id,
-            subscription["lines"],
-        )
-
-        if item:
-            return subscription

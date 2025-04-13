@@ -1,7 +1,9 @@
 import logging
 
-from swo.mpt.client.mpt import create_subscription, get_subscription_by_line_and_item_id
+from swo.mpt.client.mpt import create_subscription
 from swo.mpt.extensions.flows.pipeline import Step
+
+from ffc.flows.order import get_subscription_by_line_and_item_id
 
 logger = logging.getLogger(__name__)
 

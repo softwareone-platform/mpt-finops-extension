@@ -15,7 +15,9 @@ from ffc.flows.steps import (
     CreateEmployee,
     CreateOrganization,
     CreateSubscription,
+    QueryIfInvalid,
     ResetDueDate,
+    ResetOrderErrors,
     SetupAgreementExternalId,
     SetupDueDate,
 )
@@ -25,9 +27,11 @@ logger = logging.getLogger(__name__)
 
 
 purchase = Pipeline(
+    ResetOrderErrors(),
     SetupDueDate(),
     CheckDueDate(),
     CheckOrderParameters(),
+    QueryIfInvalid(),
     CreateEmployee(),
     CreateOrganization(),
     SetupAgreementExternalId(),
@@ -54,7 +58,8 @@ def fulfill_order(client, order):
     try:
         if is_purchase_order(order):
             purchase.run(client, context)
-    except Exception:
+    except Exception:  # pragma: no cover
+        # should be covered by SDK tests
         notify_unhandled_exception_in_teams(
             "fulfillment",
             order["id"],

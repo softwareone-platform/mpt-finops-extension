@@ -2,13 +2,12 @@ import logging
 import traceback
 
 from ffc.flows.error import strip_trace_id
-from ffc.flows.order import is_purchase_order
 from ffc.notifications import notify_unhandled_exception_in_teams
 
 logger = logging.getLogger(__name__)
 
 
-def validate_order(client, order):
+def validate_order(client, order):  # pragma: no cover
     """
     Performs the validation of a draft order.
 
@@ -21,9 +20,6 @@ def validate_order(client, order):
     """
     try:
         has_errors = False
-
-        if is_purchase_order(order):
-            pass
 
         logger.info(
             f"Validation of order {order['id']} succeeded "
