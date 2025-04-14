@@ -120,7 +120,7 @@ class FinOpsClient:
 
         response.raise_for_status()
 
-        return response.json()["items"]
+        return response.json()["items"][0]
 
     def _get_headers(self):
         return {
