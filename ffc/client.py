@@ -109,11 +109,11 @@ class FinOpsClient:
     def get_organization_by_external_id(self, agreement_id):
         headers = self._get_headers()
 
-        rql_filter = f"operations_external_id={agreement_id}"
+        rql_filter = f"eq(operations_external_id,{agreement_id})"
         response = requests.get(
             urljoin(
                 self._api_base_url,
-                f"/ops/v1/organizations?&{rql_filter}&limit=1",
+                f"/ops/v1/organizations?{rql_filter}&limit=1",
             ),
             headers=headers,
         )

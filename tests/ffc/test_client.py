@@ -216,7 +216,7 @@ def test_get_organization(mocker, mock_jwt_encoder, ffc_client_settings):
     token = mock_jwt_encoder(now)
 
     responses.get(
-        f"https://local.local/ops/v1/organizations?operations_external_id={agreement_id}&limit=1",
+        f"https://local.local/ops/v1/organizations?eq(operations_external_id,{agreement_id})&limit=1",
         status=200,
         json={"items": [{"id": "test-organization"}]},
         match=[
