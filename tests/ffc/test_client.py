@@ -232,6 +232,6 @@ def test_get_organization(mocker, mock_jwt_encoder, ffc_client_settings):
     )
 
     client = get_ffc_client()
-    organizations = client.get_organization_by_external_id(agreement_id)
+    organizations = client.get_organizations_by_external_id(agreement_id)
 
     assert organizations == [{"id": "test-organization"}]

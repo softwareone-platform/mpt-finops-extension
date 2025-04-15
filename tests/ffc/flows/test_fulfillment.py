@@ -33,7 +33,7 @@ def test_purchase_order(
 
     mocked_ffc_client = mocker.MagicMock()
     mocked_ffc_client.get_employee.return_value = ffc_employee
-    mocked_ffc_client.get_organization_by_external_id.return_value = ffc_organization
+    mocked_ffc_client.get_organizations_by_external_id.return_value = [ffc_organization]
     mocker.patch(
         "ffc.flows.steps.finops.get_ffc_client", return_value=mocked_ffc_client
     )
