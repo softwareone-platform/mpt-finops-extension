@@ -80,7 +80,7 @@ def test_create_organization(
 ):
     mocked_ffc_client = mocker.MagicMock()
     mocked_ffc_client.create_organization.return_value = ffc_organization
-    mocked_ffc_client.get_organization_by_external_id.return_value = []
+    mocked_ffc_client.get_organizations_by_external_id.return_value = []
     mocker.patch(
         "ffc.flows.steps.finops.get_ffc_client", return_value=mocked_ffc_client
     )
@@ -120,7 +120,7 @@ def test_create_organization_exists(
     ffc_organization,
 ):
     mocked_ffc_client = mocker.MagicMock()
-    mocked_ffc_client.get_organization_by_external_id.return_value = ffc_organization
+    mocked_ffc_client.get_organizations_by_external_id.return_value = [ffc_organization]
     mocker.patch(
         "ffc.flows.steps.finops.get_ffc_client", return_value=mocked_ffc_client
     )
@@ -133,7 +133,7 @@ def test_create_organization_exists(
 
     assert ctx.organization == ffc_organization
     mocked_next_step.assert_called_once()
-    mocked_ffc_client.get_organization_by_external_id.assert_called_once_with(
+    mocked_ffc_client.get_organizations_by_external_id.assert_called_once_with(
         processing_purchase_order["agreement"]["id"],
     )
     mocked_ffc_client.create_organization.assert_not_called()

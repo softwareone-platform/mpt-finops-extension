@@ -106,7 +106,7 @@ class FinOpsClient:
         return response.json()
 
     @wrap_http_error
-    def get_organization_by_external_id(self, agreement_id):
+    def get_organizations_by_external_id(self, agreement_id):
         headers = self._get_headers()
 
         rql_filter = f"eq(operations_external_id,{agreement_id})"
@@ -120,7 +120,7 @@ class FinOpsClient:
 
         response.raise_for_status()
 
-        return response.json()["items"][0]
+        return response.json()["items"]
 
     def _get_headers(self):
         return {

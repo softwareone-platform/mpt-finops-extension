@@ -48,9 +48,10 @@ class CreateOrganization(Step):
         order = context.order
         agreement_id = order["agreement"]["id"]
 
-        organization = ffc_client.get_organization_by_external_id(
+        organizations = ffc_client.get_organizations_by_external_id(
             agreement_id,
         )
+        organization = organizations and organizations[0]
         if not organization:
             organization = ffc_client.create_organization(
                 get_ordering_parameter(order, PARAM_ORGANIZATION_NAME)["value"],
