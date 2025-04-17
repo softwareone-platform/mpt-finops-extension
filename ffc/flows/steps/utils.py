@@ -1,6 +1,6 @@
 from copy import deepcopy
 
-from swo.mpt.client.mpt import fail_order
+from mpt_extension_sdk.mpt_http.mpt import fail_order
 
 from ffc.notifications import send_email_notification
 from ffc.parameters import set_due_date

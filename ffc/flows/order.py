@@ -1,6 +1,6 @@
 from dataclasses import dataclass, field
 
-from swo.mpt.extensions.flows.context import Context as BaseContext
+from mpt_extension_sdk.flows.context import Context as BaseContext
 
 from ffc.utils import find_first
 

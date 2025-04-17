@@ -1,6 +1,6 @@
 import json
 
-from swo.mpt.extensions.core.events import Event
+from mpt_extension_sdk.core.events.dataclasses import Event
 from swo.mpt.extensions.runtime.djapp.conf import get_for_product
 
 from ffc.extension import (
