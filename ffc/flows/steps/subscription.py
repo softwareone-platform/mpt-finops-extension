@@ -1,7 +1,7 @@
 import logging
 
-from swo.mpt.client.mpt import create_subscription
-from swo.mpt.extensions.flows.pipeline import Step
+from mpt_extension_sdk.flows.pipeline import Step
+from mpt_extension_sdk.mpt_http.mpt import create_subscription
 
 from ffc.flows.order import get_subscription_by_line_and_item_id
 

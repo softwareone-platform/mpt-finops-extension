@@ -1,6 +1,6 @@
 import logging
 
-from swo.mpt.extensions.flows.pipeline import Step
+from mpt_extension_sdk.flows.pipeline import Step
 
 from ffc.client import FinOpsNotFoundError, get_ffc_client
 from ffc.parameters import (

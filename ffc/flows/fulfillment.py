@@ -1,7 +1,7 @@
 import logging
 import traceback
 
-from swo.mpt.extensions.flows.pipeline import Pipeline
+from mpt_extension_sdk.flows.pipeline import Pipeline
 
 from ffc.flows.error import strip_trace_id
 from ffc.flows.order import (

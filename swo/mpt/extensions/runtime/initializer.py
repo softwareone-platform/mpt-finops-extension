@@ -3,29 +3,15 @@ import os
 
 import rich
 from rich.theme import Theme
-from swo.mpt.extensions.runtime.djapp.conf import extract_product_ids
-from swo.mpt.extensions.runtime.events.utils import instrument_logging
-from swo.mpt.extensions.runtime.utils import get_extension_app_config_name
+from mpt_extension_sdk.runtime.djapp.conf import extract_product_ids
+from mpt_extension_sdk.runtime.events.utils import instrument_logging
+from mpt_extension_sdk.runtime.initializer import get_extension_variables
+from mpt_extension_sdk.runtime.utils import get_extension_app_config_name
 
 
 JSON_EXT_VARIABLES = {
     "EXT_WEBHOOKS_SECRETS",
 }
-
-
-def get_extension_variables():
-    variables = {}
-    for var in filter(lambda x: x[0].startswith("EXT_"), os.environ.items()):
-        if var[0] in JSON_EXT_VARIABLES:
-            try:
-                value = json.loads(var[1])
-            except json.JSONDecodeError:
-                raise Exception(f"Variable {var[0]} not well formatted")
-        else:
-            value = var[1]
-
-        variables[var[0][4:]] = value
-    return variables
 
 
 def initialize(options):
@@ -42,8 +28,10 @@ def initialize(options):
         logging_handlers = [root_logging_handler]
 
     logging_level = "DEBUG" if options.get("debug") else "INFO"
+    group = "swo.mpt.ext"
+    name = "app_config"
 
-    app_config_name = get_extension_app_config_name()
+    app_config_name = get_extension_app_config_name(group=group, name=name)
     app_root_module, _ = app_config_name.split(".", 1)
     settings.DEBUG = options.get("debug", False)
     settings.INSTALLED_APPS.append(app_config_name)
@@ -55,7 +43,7 @@ def initialize(options):
         "level": logging_level,
         "propagate": False,
     }
-    settings.EXTENSION_CONFIG.update(get_extension_variables())
+    settings.EXTENSION_CONFIG.update(get_extension_variables(JSON_EXT_VARIABLES))
     settings.MPT_PRODUCTS_IDS = extract_product_ids(settings.MPT_PRODUCTS_IDS)
 
     if settings.USE_APPLICATIONINSIGHTS:

@@ -2,8 +2,8 @@ import logging
 from datetime import date, timedelta
 
 from django.conf import settings
-from swo.mpt.client.mpt import update_order
-from swo.mpt.extensions.flows.pipeline import Step
+from mpt_extension_sdk.flows.pipeline import Step
+from mpt_extension_sdk.mpt_http.mpt import update_order
 
 from ffc.flows.steps.utils import switch_order_to_failed
 from ffc.notifications import send_email_notification
