@@ -50,7 +50,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "swo.mpt.extensions.runtime.djapp.middleware.MPTClientMiddleware",
+    "mpt_extension_sdk.runtime.djapp.middleware.MPTClientMiddleware",
 ]
 
 ROOT_URLCONF = "swo.mpt.extensions.runtime.djapp.conf.urls"

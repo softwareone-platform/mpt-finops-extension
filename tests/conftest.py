@@ -554,7 +554,7 @@ def mpt_client(settings):
     Create an instance of the MPT client used by the extension.
     """
     settings.MPT_API_BASE_URL = "https://localhost"
-    from swo.mpt.extensions.core.utils import setup_client
+    from mpt_extension_sdk.core.utils import setup_client
 
     return setup_client()
 

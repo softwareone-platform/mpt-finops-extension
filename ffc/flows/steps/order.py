@@ -1,12 +1,12 @@
 import logging
 
-from swo.mpt.client.mpt import (
+from mpt_extension_sdk.flows.pipeline import Step
+from mpt_extension_sdk.mpt_http.mpt import (
     complete_order,
     get_product_template_or_default,
     query_order,
     update_agreement,
 )
-from swo.mpt.extensions.flows.pipeline import Step
 
 from ffc.flows.error import (
     ERR_ADMIN_CONTACT,
