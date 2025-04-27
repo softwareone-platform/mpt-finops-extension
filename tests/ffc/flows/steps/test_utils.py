@@ -23,6 +23,7 @@ def test_switch_order_to_failed(
         mpt_client,
         processing_purchase_order["id"],
         "error",
+        "error",
         parameters=no_due_date_order["parameters"],
     )
     mock_send_email_notifications.assert_called_once_with(

@@ -5,6 +5,7 @@ from mpt_extension_sdk.flows.pipeline import Pipeline
 
 from ffc.flows.error import strip_trace_id
 from ffc.flows.order import (
+    FAILURE_REASON,
     PURCHASE_TEMPLATE_NAME,
     OrderContext,
     is_purchase_order,
@@ -16,6 +17,7 @@ from ffc.flows.steps import (
     CreateEmployee,
     CreateOrganization,
     CreateSubscription,
+    FailOrder,
     QueryIfInvalid,
     ResetDueDate,
     ResetOrderErrors,
@@ -43,6 +45,10 @@ purchase = Pipeline(
     CompleteOrder(PURCHASE_TEMPLATE_NAME),
 )
 
+fail = Pipeline(
+    FailOrder(FAILURE_REASON),
+)
+
 
 def fulfill_order(client, order):
     """
@@ -61,6 +67,9 @@ def fulfill_order(client, order):
     try:
         if is_purchase_order(order):
             purchase.run(client, context)
+        else:
+            fail.run(client, context)
+
     except Exception:  # pragma: no cover
         # should be covered by SDK tests
         notify_unhandled_exception_in_teams(

@@ -2,6 +2,7 @@ from ffc.flows.order import OrderContext
 from ffc.flows.steps.order import (
     CheckOrderParameters,
     CompleteOrder,
+    FailOrder,
     QueryIfInvalid,
     ResetOrderErrors,
     SetupAgreementExternalId,
@@ -277,4 +278,26 @@ def test_start_order_processing_send_notification(
     mocked_send_email_notification.assert_called_once_with(
         mpt_client,
         first_attempt_processing_purchase_order,
+    )
+
+
+def test_fail_order(
+    mocker,
+    mocked_next_step,
+    mpt_client,
+    processing_purchase_order,
+):
+    mocked_switch_order_to_failed = mocker.patch(
+        "ffc.flows.steps.order.switch_order_to_failed"
+    )
+    ctx = OrderContext(order=processing_purchase_order)
+    step = FailOrder("reason")
+
+    step(mpt_client, ctx, mocked_next_step)
+
+    mocked_next_step.assert_not_called()
+    mocked_switch_order_to_failed.assert_called_once_with(
+        mpt_client,
+        processing_purchase_order,
+        "reason",
     )

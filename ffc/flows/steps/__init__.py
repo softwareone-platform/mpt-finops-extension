@@ -3,6 +3,7 @@ from ffc.flows.steps.finops import CreateEmployee, CreateOrganization
 from ffc.flows.steps.order import (
     CheckOrderParameters,
     CompleteOrder,
+    FailOrder,
     QueryIfInvalid,
     ResetOrderErrors,
     SetupAgreementExternalId,
@@ -23,4 +24,5 @@ __all__ = [
     "CheckOrderParameters",
     "SetupAgreementExternalId",
     "StartOrderProcessing",
+    "FailOrder",
 ]

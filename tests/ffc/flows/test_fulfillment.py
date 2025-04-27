@@ -1,6 +1,8 @@
+import pytest
 from freezegun import freeze_time
 
 from ffc.flows.fulfillment import fulfill_order
+from ffc.flows.order import FAILURE_REASON
 
 
 @freeze_time("2025-01-01")
@@ -120,4 +122,32 @@ def test_purchase_order(
                 },
             ],
         },
+    )
+
+
+@pytest.mark.parametrize(
+    "order_to_fail",
+    [
+        "processing_change_order",
+        "processing_termination_order",
+        "processing_configuration_order",
+    ],
+)
+def test_other_order_types(
+    request,
+    mocker,
+    mpt_client,
+    order_to_fail,
+):
+    order_to_fail = request.getfixturevalue(order_to_fail)
+    mocked_switch_order_to_failed = mocker.patch(
+        "ffc.flows.steps.order.switch_order_to_failed"
+    )
+
+    fulfill_order(mpt_client, order_to_fail)
+
+    mocked_switch_order_to_failed.assert_called_once_with(
+        mpt_client,
+        order_to_fail,
+        FAILURE_REASON,
     )
