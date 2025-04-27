@@ -6,6 +6,7 @@ from mpt_extension_sdk.mpt_http.mpt import (
     get_product_template_or_default,
     query_order,
     update_agreement,
+    update_order,
 )
 
 from ffc.flows.error import (
@@ -13,13 +14,19 @@ from ffc.flows.error import (
     ERR_CURRENCY,
     ERR_ORGANIZATION_NAME,
 )
-from ffc.flows.order import MPT_ORDER_STATUS_COMPLETED, MPT_ORDER_STATUS_QUERYING
+from ffc.flows.order import (
+    MPT_ORDER_STATUS_COMPLETED,
+    MPT_ORDER_STATUS_PROCESSING,
+    MPT_ORDER_STATUS_QUERYING,
+    set_template,
+)
 from ffc.flows.steps.utils import reset_order_error
 from ffc.notifications import send_email_notification
 from ffc.parameters import (
     PARAM_ADMIN_CONTACT,
     PARAM_CURRENCY,
     PARAM_ORGANIZATION_NAME,
+    get_due_date,
     get_ordering_parameter,
     reset_ordering_parameters_error,
     set_ordering_parameter_error,
@@ -138,5 +145,38 @@ class ResetOrderErrors(Step):
     def __call__(self, client, context, next_step):
         context.order = reset_order_error(context.order)
         context.order = reset_ordering_parameters_error(context.order)
+
+        next_step(client, context)
+
+
+class StartOrderProcessing(Step):
+    """
+    Set the template for the processing status
+    """
+
+    def __init__(self, template_name):
+        self.template_name = template_name
+
+    def __call__(self, client, context, next_step):
+        template = get_product_template_or_default(
+            client,
+            context.order["agreement"]["product"]["id"],
+            MPT_ORDER_STATUS_PROCESSING,
+            self.template_name,
+        )
+        current_template_id = context.order.get("template", {}).get("id")
+        if template["id"] != current_template_id:
+            context.order = set_template(context.order, template)
+            update_order(
+                client, context.order["id"], template=context.order["template"]
+            )
+            logger.info(
+                f"{context}: processing template set to {self.template_name} "
+                f"({template['id']})"
+            )
+        logger.info(f"{context}: processing template is ok, continue")
+
+        if not get_due_date(context.order):
+            send_email_notification(client, context.order)
 
         next_step(client, context)

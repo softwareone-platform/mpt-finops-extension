@@ -1,3 +1,4 @@
+import copy
 from dataclasses import dataclass, field
 
 from mpt_extension_sdk.flows.context import Context as BaseContext
@@ -9,6 +10,8 @@ MPT_ORDER_STATUS_QUERYING = "Querying"
 MPT_ORDER_STATUS_COMPLETED = "Completed"
 
 ORDER_TYPE_PURCHASE = "Purchase"
+
+PURCHASE_TEMPLATE_NAME = "Purchase"
 
 
 def is_purchase_order(order):
@@ -66,3 +69,9 @@ def get_subscription_by_line_and_item_id(subscriptions, item_id, line_id):
 
         if item:
             return subscription
+
+
+def set_template(order, template):
+    updated_order = copy.deepcopy(order)
+    updated_order["template"] = template
+    return updated_order

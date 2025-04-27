@@ -5,6 +5,7 @@ from mpt_extension_sdk.flows.pipeline import Pipeline
 
 from ffc.flows.error import strip_trace_id
 from ffc.flows.order import (
+    PURCHASE_TEMPLATE_NAME,
     OrderContext,
     is_purchase_order,
 )
@@ -20,6 +21,7 @@ from ffc.flows.steps import (
     ResetOrderErrors,
     SetupAgreementExternalId,
     SetupDueDate,
+    StartOrderProcessing,
 )
 from ffc.notifications import notify_unhandled_exception_in_teams
 
@@ -32,12 +34,13 @@ purchase = Pipeline(
     CheckDueDate(),
     CheckOrderParameters(),
     QueryIfInvalid(),
+    StartOrderProcessing(PURCHASE_TEMPLATE_NAME),
     CreateEmployee(),
     CreateOrganization(),
     SetupAgreementExternalId(),
     CreateSubscription(),
     ResetDueDate(),
-    CompleteOrder("purchase_order"),
+    CompleteOrder(PURCHASE_TEMPLATE_NAME),
 )
 
 
