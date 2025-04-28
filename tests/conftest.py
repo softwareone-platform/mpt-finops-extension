@@ -501,6 +501,21 @@ def processing_purchase_order(order_factory):
 
 
 @pytest.fixture()
+def processing_change_order(order_factory):
+    return order_factory(order_type="Change")
+
+
+@pytest.fixture()
+def processing_termination_order(order_factory):
+    return order_factory(order_type="Terminate")
+
+
+@pytest.fixture()
+def processing_configuration_order(order_factory):
+    return order_factory(order_type="Configuration")
+
+
+@pytest.fixture()
 def first_attempt_processing_purchase_order(processing_purchase_order):
     for param in processing_purchase_order["parameters"]["fulfillment"]:
         del param["value"]

@@ -20,7 +20,7 @@ from ffc.flows.order import (
     MPT_ORDER_STATUS_QUERYING,
     set_template,
 )
-from ffc.flows.steps.utils import reset_order_error
+from ffc.flows.steps.utils import reset_order_error, switch_order_to_failed
 from ffc.notifications import send_email_notification
 from ffc.parameters import (
     PARAM_ADMIN_CONTACT,
@@ -180,3 +180,19 @@ class StartOrderProcessing(Step):
             send_email_notification(client, context.order)
 
         next_step(client, context)
+
+
+class FailOrder(Step):
+    """
+    Fail the order with a reason
+    """
+
+    def __init__(self, reason):
+        self.reason = reason
+
+    def __call__(self, client, context, next_step):
+        switch_order_to_failed(
+            client,
+            context.order,
+            self.reason,
+        )
