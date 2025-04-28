@@ -22,3 +22,6 @@ class ValidationError:
 ERR_ORGANIZATION_NAME = ValidationError("FFC0001", "Organization name is required")
 ERR_CURRENCY = ValidationError("FFC0002", "Currency is required")
 ERR_ADMIN_CONTACT = ValidationError("FFC0003", "Administrator contact is required")
+ERR_ORDER_TYPE_NOT_SUPPORTED = ValidationError(
+    "FFC0004", "Order type `{order_type}` is not supported by FinOps"
+)

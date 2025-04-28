@@ -10,6 +10,7 @@ from ffc.flows.steps.order import (
     StartOrderProcessing,
 )
 from ffc.flows.steps.subscription import CreateSubscription
+from ffc.flows.steps.validation import OrderTypeIsNotSupported
 
 __all__ = [
     "CompleteOrder",
@@ -25,4 +26,5 @@ __all__ = [
     "SetupAgreementExternalId",
     "StartOrderProcessing",
     "FailOrder",
+    "OrderTypeIsNotSupported",
 ]

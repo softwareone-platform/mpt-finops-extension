@@ -1,4 +1,9 @@
-from ffc.flows.steps.utils import switch_order_to_failed
+from ffc.flows.error import ERR_ORDER_TYPE_NOT_SUPPORTED
+from ffc.flows.steps.utils import (
+    reset_order_error,
+    set_order_error,
+    switch_order_to_failed,
+)
 from ffc.parameters import set_due_date
 
 
@@ -30,3 +35,23 @@ def test_switch_order_to_failed(
         mpt_client,
         failed_purchase_order,
     )
+
+
+def test_set_order_error(processing_purchase_order):
+    order_msg = ERR_ORDER_TYPE_NOT_SUPPORTED.to_dict(
+        order_type="Change",
+    )
+    updated_order = set_order_error(processing_purchase_order, order_msg)
+
+    assert updated_order["error"] == order_msg
+
+
+def test_reset_order_error(processing_purchase_order):
+    order_msg = ERR_ORDER_TYPE_NOT_SUPPORTED.to_dict(
+        order_type="Change",
+    )
+    processing_purchase_order["error"] = order_msg
+
+    updated_order = reset_order_error(processing_purchase_order)
+
+    assert updated_order["error"] is None
