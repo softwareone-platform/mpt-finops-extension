@@ -29,6 +29,7 @@ def test_purchase_order(
     mocked_send_email_notification_complete_order = mocker.patch(
         "ffc.flows.steps.order.send_email_notification",
     )
+    mocked_update_order = mocker.patch("ffc.flows.steps.order.update_order")
     mocked_update_agreement = mocker.patch("ffc.flows.steps.order.update_agreement")
 
     mocked_ffc_client = mocker.MagicMock()
@@ -40,6 +41,11 @@ def test_purchase_order(
 
     fulfill_order(mpt_client, processing_purchase_order)
 
+    mocked_update_order.assert_called_once_with(
+        mpt_client,
+        processing_purchase_order["id"],
+        template=template,
+    )
     mocked_update_agreement.assert_called_once_with(
         mpt_client,
         processing_purchase_order["agreement"]["id"],

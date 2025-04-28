@@ -6,6 +6,7 @@ from ffc.flows.steps.order import (
     QueryIfInvalid,
     ResetOrderErrors,
     SetupAgreementExternalId,
+    StartOrderProcessing,
 )
 from ffc.flows.steps.subscription import CreateSubscription
 
@@ -21,4 +22,5 @@ __all__ = [
     "CreateOrganization",
     "CheckOrderParameters",
     "SetupAgreementExternalId",
+    "StartOrderProcessing",
 ]
