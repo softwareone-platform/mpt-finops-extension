@@ -30,6 +30,29 @@ def switch_order_to_failed(client, order, reason):
 
 
 def reset_order_error(order):
+    """
+    Set order error message to None
+
+    Args:
+        order (dict): An MPT order dict representation
+
+    Returns:
+        dict: The update order with
+    """
+    return set_order_error(order, None)
+
+
+def set_order_error(order, error):
+    """
+    Set order error message
+
+    Args:
+        order (dict): An MPT order dict representation
+        error (dict): an error dict with id, message fields
+
+    Returns:
+        dict: The update order with
+    """
     updated_order = deepcopy(order)
-    updated_order["error"] = None
+    updated_order["error"] = error
     return updated_order
