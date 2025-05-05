@@ -125,11 +125,69 @@ def test_purchase_order(
     )
 
 
+@freeze_time("2025-01-01")
+def test_terminate_order(
+    mocker,
+    mpt_client,
+    processing_termination_order,
+    template,
+    ffc_organization,
+):
+    mocker.patch(
+        "ffc.flows.steps.order.get_product_template_or_default",
+        return_value=template,
+    )
+    mocked_complete_order = mocker.patch(
+        "ffc.flows.steps.order.complete_order",
+        return_value=processing_termination_order,
+    )
+    mocked_send_email_notification_complete_order = mocker.patch(
+        "ffc.flows.steps.order.send_email_notification",
+    )
+    mocked_update_order = mocker.patch("ffc.flows.steps.order.update_order")
+
+    mocked_ffc_client = mocker.MagicMock()
+    mocked_ffc_client.get_organizations_by_external_id.return_value = [ffc_organization]
+    mocker.patch(
+        "ffc.flows.steps.finops.get_ffc_client", return_value=mocked_ffc_client
+    )
+
+    fulfill_order(mpt_client, processing_termination_order)
+
+    mocked_update_order.assert_called_once_with(
+        mpt_client,
+        processing_termination_order["id"],
+        template=template,
+    )
+
+    mocked_send_email_notification_complete_order.assert_called_once_with(
+        mpt_client,
+        processing_termination_order,
+    )
+    mocked_complete_order.assert_called_once_with(
+        mpt_client,
+        processing_termination_order["id"],
+        template,
+        parameters={
+            "fulfillment": [
+                {
+                    "externalId": "dueDate",
+                    "id": "PAR-7208-0459-0007",
+                    "name": "Due Date",
+                    "phase": "Fulfillment",
+                    "type": "Date",
+                    "value": None,
+                }
+            ],
+            "ordering": [],
+        },
+    )
+
+
 @pytest.mark.parametrize(
     "order_to_fail",
     [
         "processing_change_order",
-        "processing_termination_order",
         "processing_configuration_order",
     ],
 )

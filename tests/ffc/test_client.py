@@ -205,6 +205,37 @@ def test_create_organization(mocker, mock_jwt_encoder, ffc_client_settings):
 
 @freeze_time("2025-01-01")
 @responses.activate
+def test_delete_organization(mocker, mock_jwt_encoder, ffc_client_settings):
+    mocker.patch(
+        "ffc.client.uuid4",
+        return_value="uuid-1",
+    )
+
+    now = datetime.now(tz=timezone.utc)
+    token = mock_jwt_encoder(now)
+
+    responses.delete(
+        "https://local.local/ops/v1/organizations/test-organization",
+        status=204,
+        match=[
+            matchers.header_matcher(
+                {
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/json",
+                    "Content-Type": "application/json",
+                    "X-Request-Id": "uuid-1",
+                },
+            ),
+
+        ],
+    )
+
+    client = get_ffc_client()
+    client.delete_organization("test-organization")
+
+
+@freeze_time("2025-01-01")
+@responses.activate
 def test_get_organization(mocker, mock_jwt_encoder, ffc_client_settings):
     mocker.patch(
         "ffc.client.uuid4",

@@ -3,6 +3,7 @@ from ffc.flows.order import OrderContext
 from ffc.flows.steps.finops import (
     CreateEmployee,
     CreateOrganization,
+    DeleteOrganization,
 )
 from ffc.parameters import (
     PARAM_ADMIN_CONTACT,
@@ -137,3 +138,60 @@ def test_create_organization_exists(
         processing_purchase_order["agreement"]["id"],
     )
     mocked_ffc_client.create_organization.assert_not_called()
+
+
+def test_delete_organization(
+    mocker,
+    mocked_next_step,
+    mpt_client,
+    processing_termination_order,
+    ffc_organization,
+):
+    mocked_ffc_client = mocker.MagicMock()
+    mocked_ffc_client.delete_organization.return_value = None
+    mocked_ffc_client.get_organizations_by_external_id.return_value = [ffc_organization]
+    mocker.patch("ffc.flows.steps.finops.get_ffc_client", return_value=mocked_ffc_client)
+
+    ctx = OrderContext(order=processing_termination_order)
+    step = DeleteOrganization()
+    step(mpt_client, ctx, mocked_next_step)
+
+    assert ctx.organization == ffc_organization
+    mocked_next_step.assert_called_once()
+    mocked_ffc_client.get_organizations_by_external_id.assert_called_once_with(
+        agreement_id=processing_termination_order["agreement"]["id"],
+    )
+    mocked_ffc_client.delete_organization.assert_called_once_with(ffc_organization["id"])
+
+
+def test_delete_organization_deleted_or_not_found(
+    mocker,
+    mocked_next_step,
+    mpt_client,
+    processing_termination_order,
+    ffc_organization,
+):
+    ffc_organization["status"] = "deleted"
+    mocked_ffc_client = mocker.MagicMock()
+    mocked_ffc_client.get_organizations_by_external_id.return_value = [ffc_organization]
+    mocker.patch("ffc.flows.steps.finops.get_ffc_client", return_value=mocked_ffc_client)
+
+    ctx = OrderContext(order=processing_termination_order)
+    step = DeleteOrganization()
+
+    step(mpt_client, ctx, mocked_next_step)
+
+    assert ctx.organization is None
+    mocked_next_step.assert_called_once()
+    mocked_ffc_client.get_organizations_by_external_id.assert_called_once_with(
+        agreement_id=processing_termination_order["agreement"]["id"],
+    )
+    mocked_ffc_client.delete_organization.assert_not_called()
+
+    mocked_ffc_client.get_organizations_by_external_id.return_value = []
+    mocker.patch("ffc.flows.steps.finops.get_ffc_client", return_value=mocked_ffc_client)
+
+    step(mpt_client, ctx, mocked_next_step)
+
+    mocked_ffc_client.delete_organization.assert_not_called()
+    assert ctx.organization is None

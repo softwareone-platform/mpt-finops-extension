@@ -12,6 +12,8 @@ from ffc.parameters import (
 
 logger = logging.getLogger(__name__)
 
+DELETED_ORGANIZATION = "deleted"
+
 
 class CreateEmployee(Step):
     """
@@ -66,5 +68,31 @@ class CreateOrganization(Step):
                 f"{context}: organization for {agreement_id} was created {organization['id']}. Skip"
             )
         context.organization = organization
+
+        next_step(client, context)
+
+
+class DeleteOrganization(Step):
+    """
+    Delete given organization
+    """
+
+    def __call__(self, client, context, next_step):
+        ffc_client = get_ffc_client()
+        order = context.order
+        agreement_id = order["agreement"]["id"]
+
+        organizations = ffc_client.get_organizations_by_external_id(agreement_id=agreement_id)
+        organization = organizations and organizations[0]
+
+        if organization and organization["status"] != DELETED_ORGANIZATION:
+            ffc_client.delete_organization(organization["id"])
+            logger.info(f"{context}: organization deleted {organization['id']}")
+
+            context.organization = organization
+        else:
+            logger.info(
+                f"{context}: organization is already deleted or not found for {agreement_id}. Skip"
+            )
 
         next_step(client, context)
