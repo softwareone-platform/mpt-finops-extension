@@ -5,16 +5,26 @@ from ffc.flows.validation import (
     validate_order,
     validate_other_orders,
     validate_purchase_order,
+    validate_terminate_order,
 )
 
 
-def test_validate_purchase(
+def test_validate_supported_order(
     mpt_client,
     processing_purchase_order,
+    processing_termination_order,
 ):
     has_errors, order = validate_purchase_order(
         mpt_client,
         processing_purchase_order,
+    )
+
+    assert has_errors is False
+    assert order["error"] is None
+
+    has_errors, order = validate_terminate_order(
+        mpt_client,
+        processing_termination_order,
     )
 
     assert has_errors is False
@@ -25,7 +35,6 @@ def test_validate_purchase(
     "order",
     [
         "processing_change_order",
-        "processing_termination_order",
         "processing_configuration_order",
     ],
 )
@@ -43,11 +52,16 @@ def test_validate_other_orders(
     assert order["error"] == err_msg
 
 
-def test_validate_order_purchase(
+def test_validate_order(
     mpt_client,
     processing_purchase_order,
+    processing_termination_order,
 ):
     order = validate_order(mpt_client, processing_purchase_order)
+
+    assert order["error"] is None
+
+    order = validate_order(mpt_client, processing_termination_order)
 
     assert order["error"] is None
 
@@ -56,7 +70,6 @@ def test_validate_order_purchase(
     "order",
     [
         "processing_change_order",
-        "processing_termination_order",
         "processing_configuration_order",
     ],
 )

@@ -4,7 +4,7 @@ import traceback
 from mpt_extension_sdk.flows.pipeline import Pipeline
 
 from ffc.flows.error import strip_trace_id
-from ffc.flows.order import OrderContext, is_purchase_order
+from ffc.flows.order import OrderContext, is_purchase_order, is_terminate_order
 from ffc.flows.steps import OrderTypeIsNotSupported
 from ffc.notifications import notify_unhandled_exception_in_teams
 
@@ -25,6 +25,8 @@ def validate_order(client, order):
     try:
         if is_purchase_order(order):
             has_errors, order = validate_purchase_order(client, order)
+        elif is_terminate_order(order):
+            has_errors, order = validate_terminate_order(client, order)
         else:
             has_errors, order = validate_other_orders(client, order)
 
@@ -43,6 +45,10 @@ def validate_order(client, order):
 
 
 def validate_purchase_order(client, order):
+    return False, order
+
+
+def validate_terminate_order(client, order):
     return False, order
 
 
