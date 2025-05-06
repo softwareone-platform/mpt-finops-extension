@@ -1,8 +1,8 @@
 import pytest
 from freezegun import freeze_time
 
+from ffc.flows.error import ERR_ORDER_TYPE_NOT_SUPPORTED
 from ffc.flows.fulfillment import fulfill_order
-from ffc.flows.order import FAILURE_REASON
 
 
 @freeze_time("2025-01-01")
@@ -149,5 +149,5 @@ def test_other_order_types(
     mocked_switch_order_to_failed.assert_called_once_with(
         mpt_client,
         order_to_fail,
-        FAILURE_REASON,
+        ERR_ORDER_TYPE_NOT_SUPPORTED.to_dict(order_type=order_to_fail["type"])
     )

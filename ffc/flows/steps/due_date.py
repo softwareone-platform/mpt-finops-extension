@@ -5,6 +5,7 @@ from django.conf import settings
 from mpt_extension_sdk.flows.pipeline import Step
 from mpt_extension_sdk.mpt_http.mpt import update_order
 
+from ffc.flows.error import ERR_DUE_DATE_IS_REACHED
 from ffc.flows.steps.utils import switch_order_to_failed
 from ffc.notifications import send_email_notification
 from ffc.parameters import get_due_date, set_due_date
@@ -56,14 +57,15 @@ class CheckDueDate(Step):
     def __call__(self, client, context, next_step):
         due_date = get_due_date(context.order)
         if date.today() > due_date:
-            reason = f"Due date is reached {due_date.strftime('%Y-%m-%d')}"
+            due_date_str = due_date.strftime("%Y-%m-%d")
             logging.info(
-                f"Swith order {context.order['id']} to failed status. Reason: {reason}"
+                f"Swith order {context.order['id']} to failed status. "
+                f"Reason: due date is reached {due_date_str}"
             )
             switch_order_to_failed(
                 client,
                 context.order,
-                reason,
+                ERR_DUE_DATE_IS_REACHED.to_dict(due_date=due_date.strftime("%Y-%m-%d")),
             )
             return
 

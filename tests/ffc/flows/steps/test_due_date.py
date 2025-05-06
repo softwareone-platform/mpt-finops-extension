@@ -2,6 +2,7 @@ from datetime import date
 
 from freezegun import freeze_time
 
+from ffc.flows.error import ERR_DUE_DATE_IS_REACHED
 from ffc.flows.order import OrderContext
 from ffc.flows.steps.due_date import CheckDueDate, ResetDueDate, SetupDueDate
 from ffc.parameters import get_due_date, set_due_date
@@ -119,5 +120,5 @@ def test_check_due_date_fail_order(
     mocked_switch_order_to_failed.assert_called_once_with(
         mpt_client,
         processing_purchase_order,
-        "Due date is reached 2025-01-01",
+        ERR_DUE_DATE_IS_REACHED.to_dict(due_date="2025-01-01"),
     )
