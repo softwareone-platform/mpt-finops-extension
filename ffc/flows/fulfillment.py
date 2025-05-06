@@ -3,9 +3,8 @@ import traceback
 
 from mpt_extension_sdk.flows.pipeline import Pipeline
 
-from ffc.flows.error import strip_trace_id
+from ffc.flows.error import ERR_ORDER_TYPE_NOT_SUPPORTED, strip_trace_id
 from ffc.flows.order import (
-    FAILURE_REASON,
     PURCHASE_TEMPLATE_NAME,
     OrderContext,
     is_purchase_order,
@@ -46,7 +45,7 @@ purchase = Pipeline(
 )
 
 fail = Pipeline(
-    FailOrder(FAILURE_REASON),
+    FailOrder(ERR_ORDER_TYPE_NOT_SUPPORTED),
 )
 
 

@@ -1,3 +1,4 @@
+from ffc.flows.error import ERR_ORDER_TYPE_NOT_SUPPORTED
 from ffc.flows.order import OrderContext
 from ffc.flows.steps.order import (
     CheckOrderParameters,
@@ -291,7 +292,7 @@ def test_fail_order(
         "ffc.flows.steps.order.switch_order_to_failed"
     )
     ctx = OrderContext(order=processing_purchase_order)
-    step = FailOrder("reason")
+    step = FailOrder(ERR_ORDER_TYPE_NOT_SUPPORTED)
 
     step(mpt_client, ctx, mocked_next_step)
 
@@ -299,5 +300,5 @@ def test_fail_order(
     mocked_switch_order_to_failed.assert_called_once_with(
         mpt_client,
         processing_purchase_order,
-        "reason",
+        ERR_ORDER_TYPE_NOT_SUPPORTED.to_dict(order_type=processing_purchase_order["type"]),
     )

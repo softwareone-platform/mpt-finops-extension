@@ -184,15 +184,15 @@ class StartOrderProcessing(Step):
 
 class FailOrder(Step):
     """
-    Fail the order with a reason
+    Fail the order with an error
     """
 
-    def __init__(self, reason):
-        self.reason = reason
+    def __init__(self, error):
+        self.error = error
 
     def __call__(self, client, context, next_step):
         switch_order_to_failed(
             client,
             context.order,
-            self.reason,
+            self.error.to_dict(order_type=context.order["type"]),
         )

@@ -25,3 +25,4 @@ ERR_ADMIN_CONTACT = ValidationError("FFC0003", "Administrator contact is require
 ERR_ORDER_TYPE_NOT_SUPPORTED = ValidationError(
     "FFC0004", "Order type `{order_type}` is not supported by FinOps"
 )
+ERR_DUE_DATE_IS_REACHED = ValidationError("EXT1000", "Due date is reached {due_date}")
