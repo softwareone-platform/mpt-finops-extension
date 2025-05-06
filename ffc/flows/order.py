@@ -10,8 +10,10 @@ MPT_ORDER_STATUS_QUERYING = "Querying"
 MPT_ORDER_STATUS_COMPLETED = "Completed"
 
 ORDER_TYPE_PURCHASE = "Purchase"
+ORDER_TYPE_TERMINATE = "Terminate"
 
 PURCHASE_TEMPLATE_NAME = "Purchase"
+TERMINATE_TEMPLATE_NAME = "Terminate"
 
 
 def is_purchase_order(order):
@@ -24,6 +26,18 @@ def is_purchase_order(order):
         bool: True if it is a real purchase order, False otherwise.
     """
     return order["type"] == ORDER_TYPE_PURCHASE
+
+
+def is_terminate_order(order):
+    """
+    Check if the order is a terminate order.
+    Args:
+        source (str): The order to check.
+
+    Returns:
+        bool: True if it is a terminate order, False otherwise.
+     """
+    return order["type"] == ORDER_TYPE_TERMINATE
 
 
 @dataclass

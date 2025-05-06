@@ -106,6 +106,17 @@ class FinOpsClient:
         return response.json()
 
     @wrap_http_error
+    def delete_organization(self, organization_id):
+        headers = self._get_headers()
+
+        response = requests.delete(
+            urljoin(self._api_base_url, f"/ops/v1/organizations/{organization_id}"),
+            headers=headers,
+        )
+
+        response.raise_for_status()
+
+    @wrap_http_error
     def get_organizations_by_external_id(self, agreement_id):
         headers = self._get_headers()
 

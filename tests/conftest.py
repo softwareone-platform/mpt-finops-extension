@@ -507,7 +507,10 @@ def processing_change_order(order_factory):
 
 @pytest.fixture()
 def processing_termination_order(order_factory):
-    return order_factory(order_type="Terminate")
+    return order_factory(
+        order_type="Terminate",
+        order_parameters=[],
+    )
 
 
 @pytest.fixture()

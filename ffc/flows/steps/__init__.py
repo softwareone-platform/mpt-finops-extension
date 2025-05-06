@@ -1,5 +1,9 @@
 from ffc.flows.steps.due_date import CheckDueDate, ResetDueDate, SetupDueDate
-from ffc.flows.steps.finops import CreateEmployee, CreateOrganization
+from ffc.flows.steps.finops import (
+    CreateEmployee,
+    CreateOrganization,
+    DeleteOrganization,
+)
 from ffc.flows.steps.order import (
     CheckOrderParameters,
     CompleteOrder,
@@ -23,6 +27,7 @@ __all__ = [
     "CreateEmployee",
     "CreateOrganization",
     "CheckOrderParameters",
+    "DeleteOrganization",
     "SetupAgreementExternalId",
     "StartOrderProcessing",
     "FailOrder",

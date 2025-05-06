@@ -6,8 +6,10 @@ from mpt_extension_sdk.flows.pipeline import Pipeline
 from ffc.flows.error import ERR_ORDER_TYPE_NOT_SUPPORTED, strip_trace_id
 from ffc.flows.order import (
     PURCHASE_TEMPLATE_NAME,
+    TERMINATE_TEMPLATE_NAME,
     OrderContext,
     is_purchase_order,
+    is_terminate_order,
 )
 from ffc.flows.steps import (
     CheckDueDate,
@@ -16,6 +18,7 @@ from ffc.flows.steps import (
     CreateEmployee,
     CreateOrganization,
     CreateSubscription,
+    DeleteOrganization,
     FailOrder,
     QueryIfInvalid,
     ResetDueDate,
@@ -44,6 +47,16 @@ purchase = Pipeline(
     CompleteOrder(PURCHASE_TEMPLATE_NAME),
 )
 
+terminate = Pipeline(
+    ResetOrderErrors(),
+    SetupDueDate(),
+    CheckDueDate(),
+    StartOrderProcessing(TERMINATE_TEMPLATE_NAME),
+    DeleteOrganization(),
+    ResetDueDate(),
+    CompleteOrder(TERMINATE_TEMPLATE_NAME),
+)
+
 fail = Pipeline(
     FailOrder(ERR_ORDER_TYPE_NOT_SUPPORTED),
 )
@@ -66,6 +79,8 @@ def fulfill_order(client, order):
     try:
         if is_purchase_order(order):
             purchase.run(client, context)
+        elif is_terminate_order(order):
+            terminate.run(client, context)
         else:
             fail.run(client, context)
 
