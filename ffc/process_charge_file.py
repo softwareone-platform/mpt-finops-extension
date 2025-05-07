@@ -2,9 +2,11 @@ import asyncio
 import logging
 import os
 import tempfile
+from typing import Any
+
 import aiofiles
 import httpx
-from typing import Any
+
 from ffc.client import get_httpx_ffc_api_client
 
 logger = logging.getLogger(__name__)

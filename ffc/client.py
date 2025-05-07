@@ -46,7 +46,7 @@ def wrap_http_error(func):
 
 def get_mtp_bearer_token():
     return {
-        "Authorization": f"Bearer {os.getenv('MPT_API_TOKEN','idt:TKN-5593-3435:sMLPePFNd8PGGuox6OUT8XeZLyuFTxgcSPUxqXhrgeeqQwQ0bZNqLsiYoTcpmx2m')}",
+        "Authorization": f"Bearer {os.getenv('MPT_API_TOKEN')}",
     }
 
 

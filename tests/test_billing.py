@@ -1,15 +1,15 @@
 import logging
 import os
+import tempfile
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiofiles
+import pytest
 
 from ffc.process_charge_file import (
     ChargeFileSplitProcessor,
     read_the_response_in_chunks_and_write_to_file,
 )
-import pytest
-import tempfile
 
 charge_files = {
     "items": [
