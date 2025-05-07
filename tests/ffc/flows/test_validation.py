@@ -52,17 +52,19 @@ def test_validate_other_orders(
     assert order["error"] == err_msg
 
 
+@pytest.mark.parametrize(
+    "order",
+    [
+        "processing_purchase_order",
+        "processing_termination_order",
+    ],
+)
 def test_validate_order(
+    request,
     mpt_client,
-    processing_purchase_order,
-    processing_termination_order,
+    order,
 ):
-    order = validate_order(mpt_client, processing_purchase_order)
-
-    assert order["error"] is None
-
-    order = validate_order(mpt_client, processing_termination_order)
-
+    order = request.getfixturevalue(order)
     assert order["error"] is None
 
 
