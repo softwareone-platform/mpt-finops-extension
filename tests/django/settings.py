@@ -168,8 +168,7 @@ APPLICATIONINSIGHTS_CONNECTION_STRING = os.getenv(
 )
 
 MPT_API_BASE_URL = os.getenv("MPT_API_BASE_URL", "https://api.s1.show")
-MPT_API_TOKEN = os.getenv(
-    "MPT_API_TOKEN")
+MPT_API_TOKEN = os.getenv("MPT_API_TOKEN")
 # TODO: Should be synced with the initializer.py::initialize function
 MPT_PRODUCTS_IDS = ["PRD-1111-1111"]
 MPT_ORDERS_API_POLLING_INTERVAL_SECS = 30

@@ -54,7 +54,7 @@ class FinOpsClient:
     def __init__(self, base_url, sub, secret):
         self._sub = sub
         self._secret = secret
-        self.api_base_url = base_url
+        self._api_base_url = base_url
 
         self._jwt = None
 
@@ -62,7 +62,7 @@ class FinOpsClient:
     def get_employee(self, email):
         headers = self._get_headers()
         response = requests.get(
-            urljoin(self.api_base_url, f"/ops/v1/employees/{email}"),
+            urljoin(self._api_base_url, f"/ops/v1/employees/{email}"),
             headers=headers,
         )
 
@@ -75,7 +75,7 @@ class FinOpsClient:
         headers = self._get_headers()
 
         response = requests.post(
-            urljoin(self.api_base_url, "/ops/v1/employees"),
+            urljoin(self._api_base_url, "/ops/v1/employees"),
             headers=headers,
             json={
                 "email": email,
@@ -99,7 +99,7 @@ class FinOpsClient:
         headers = self._get_headers()
 
         response = requests.post(
-            urljoin(self.api_base_url, "/ops/v1/organizations"),
+            urljoin(self._api_base_url, "/ops/v1/organizations"),
             headers=headers,
             json={
                 "name": name,
@@ -121,7 +121,7 @@ class FinOpsClient:
         rql_filter = f"eq(operations_external_id,{agreement_id})"
         response = requests.get(
             urljoin(
-                self.api_base_url,
+                self._api_base_url,
                 f"/ops/v1/organizations?{rql_filter}&limit=1",
             ),
             headers=headers,
@@ -138,7 +138,7 @@ class FinOpsClient:
         rql_filter = "eq(status,generated)"
         response = requests.get(
             urljoin(
-                self.api_base_url,
+                self._api_base_url,
                 f"/ops/v1/charges?{rql_filter}",
             ),
             headers=headers,
