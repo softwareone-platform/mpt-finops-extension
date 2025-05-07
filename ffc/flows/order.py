@@ -14,8 +14,7 @@ ORDER_TYPE_PURCHASE = "Purchase"
 PURCHASE_TEMPLATE_NAME = "Purchase"
 
 FAILURE_REASON = (
-    "Change, Termination and Configuration Orders are not supported "
-    "by FinOps product."
+    "Change, Termination and Configuration Orders are not supported by FinOps product."
 )
 
 
