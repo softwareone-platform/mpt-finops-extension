@@ -33,7 +33,7 @@ charge_files = {
 
 
 #
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_download_charge_file_success(monkeypatch):
     client = AsyncMock()
     initial_response = MagicMock()
@@ -57,7 +57,7 @@ async def test_download_charge_file_success(monkeypatch):
         assert result.endswith("FCHG-5825-2145-4566.zip")
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_download_redirect_location_header_missing():
     client = AsyncMock()
     response = MagicMock()
@@ -72,7 +72,7 @@ async def test_download_redirect_location_header_missing():
     assert result is None
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_download_not_307_status_code():
     client = AsyncMock()
     response = MagicMock()
@@ -87,7 +87,7 @@ async def test_download_not_307_status_code():
     assert result is None
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_download_location_url_fail():
     client = AsyncMock()
     response1 = MagicMock()
@@ -105,7 +105,7 @@ async def test_download_location_url_fail():
     assert result is None
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_read_the_response_in_chunks_and_write_to_file():
     chunks = [b"chunk1", b"chunk2", b"chunk3"]
     temp_file = os.path.join(tempfile.gettempdir(), "test_downloaded_file.zip")
@@ -129,7 +129,7 @@ async def test_read_the_response_in_chunks_and_write_to_file():
         os.remove(temp_file)
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_process_generated_charge_files_success():
     proc = ChargeFileSplitProcessor(mtp_base_api_url="https://localhost.url")
     proc.download_zip_charge_file_from_azure_and_store = AsyncMock(
@@ -142,7 +142,7 @@ async def test_process_generated_charge_files_success():
     assert result == ["/tmp/a.zip"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.asyncio()
 async def test_process_generated_charge_files_exception_with_logging(caplog):
     proc = ChargeFileSplitProcessor(mtp_base_api_url="https://localhost.url")
 
