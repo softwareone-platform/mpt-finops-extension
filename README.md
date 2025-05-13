@@ -31,6 +31,9 @@ EXT_MSTEAMS_WEBHOOK_URL=https://whatever.webhook.office.com/webhookb2/<...>
 EXT_AWS_SES_CREDENTIALS=<access-key>:<secret-key>
 EXT_EMAIL_NOTIFICATIONS_SENDER=no-reply@domain.com
 EXT_EMAIL_NOTIFICATIONS_ENABLED=1
+EXT_FFC_SUB=FTKN-1111-1111
+EXT_FFC_OPERATIONS_API_BASE_URL=https://api.finops.s1.show/ops
+EXT_FFC_OPERATIONS_SECRET=supersecret
 ```
 
 `MPT_PRODUCTS_IDS` should be a comma-separated list of the SWO Marketplace Product identifiers
@@ -52,6 +55,9 @@ EXT_MSTEAMS_WEBHOOK_URL=https://whatever.webhook.office.com/webhookb2/<...>
 EXT_AWS_SES_CREDENTIALS=<access-key>:<secret-key>
 EXT_EMAIL_NOTIFICATIONS_SENDER=no-reply@domain.com
 EXT_EMAIL_NOTIFICATIONS_ENABLED=1
+EXT_FFC_SUB=FTKN-1111-1111
+EXT_FFC_OPERATIONS_API_BASE_URL=https://api.finops.s1.show/ops
+EXT_FFC_OPERATIONS_SECRET=supersecret
 ```
 
 
@@ -66,19 +72,22 @@ $ docker-compose run --service-ports app
 # Configuration
 
 ## Application
-| Environment Variable            | Default               | Example                               | Description                                                                               |
-|---------------------------------|-----------------------|---------------------------------------|-------------------------------------------------------------------------------------------|
-| `EXT_WEBHOOKS_SECRETS`          | -                     | {"PRD-1111-1111": "123qweasd3432234"} | Webhook secret of the Draft validation Webhook in SoftwareONE Marketplace for the product |
-| `MPT_PRODUCTS_IDS`              | PRD-1111-1111         | PRD-1234-1234,PRD-4321-4321           | Comma-separated list of SoftwareONE Marketplace Product ID                                |
-| `MPT_API_BASE_URL`              | http://localhost:8000 | https://portal.softwareone.com/mpt    | SoftwareONE Marketplace API URL                                                           |
-| `MPT_API_TOKEN`                 | -                     | eyJhbGciOiJSUzI1N...                  | SoftwareONE Marketplace API Token                                                         |
+| Environment Variable              | Default                           | Example                               | Description                                                                               |
+|-----------------------------------|-----------------------------------|---------------------------------------|-------------------------------------------------------------------------------------------|
+| `EXT_WEBHOOKS_SECRETS`            | -                                 | {"PRD-1111-1111": "123qweasd3432234"} | Webhook secret of the Draft validation Webhook in SoftwareONE Marketplace for the product |
+| `MPT_PRODUCTS_IDS`                | PRD-1111-1111                     | PRD-1234-1234,PRD-4321-4321           | Comma-separated list of SoftwareONE Marketplace Product ID                                |
+| `MPT_API_BASE_URL`                | http://localhost:8000             | https://portal.softwareone.com/mpt    | SoftwareONE Marketplace API URL                                                           |
+| `MPT_API_TOKEN`                   | -                                 | eyJhbGciOiJSUzI1N...                  | SoftwareONE Marketplace API Token                                                         |
+| `EXT_FFC_SUB`                     | FTKN-1111-1111                    | FTKN-1111-1111                        | FinOps for Cloud Operation API Token ID                                                   |
+| `EXT_FFC_OPERATIONS_API_BASE_URL` | https://api.finops.s1.show/ops    | https://api.finops.s1.show/ops        | FinOps for Cloud Operation API URL                                                        |
+| `EXT_FFC_OPERATIONS_SECRET`       | -                                 | eyJhbGciOiJSUzI1N...                  | FinOps for CLoud Operation API Token                                                      |
     
     
 
 ## Azure AppInsights
 | Environment Variable                    | Default                     | Example                                                                                                                                                                                             | Description                                                                                                   |
 |-----------------------------------------|-----------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------|
-| `SERVICE_NAME`                          | Swo.Extensions.FFC          | Swo.Extensions.FFC                                                                                                                                                                                  | Service name that is visible in the AppInsights logs                                                          |
+| `OTEL_SERVICE_NAME`                          | Swo.Extensions.FFC          | Swo.Extensions.FFC                                                                                                                                                                                  | Service name that is visible in the AppInsights logs                                                          |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING` | -                           | InstrumentationKey=cf280af3-b686-40fd-8183-ec87468c12ba;IngestionEndpoint=https://westeurope-1.in.applicationinsights.azure.com/;LiveEndpoint=https://westeurope.livediagnostics.monitor.azure.com/ | Azure Application Insights connection string                                                                  |
 
 ## Other
