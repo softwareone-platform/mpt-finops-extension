@@ -7,7 +7,7 @@ from mpt_extension_sdk.mpt_http.mpt import update_order
 
 from ffc.flows.error import ERR_DUE_DATE_IS_REACHED
 from ffc.flows.steps.utils import switch_order_to_failed
-from ffc.notifications import send_email_notification
+from ffc.notifications import send_mpt_notification
 from ffc.parameters import get_due_date, set_due_date
 
 logger = logging.getLogger(__name__)
@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 
 class SetupDueDate(Step):
     """
-    Sets Due date for processing order and sends email
-    if it is first attempt to process the order
+    Sets Due date for processing order and sends a notification
+    if it is the first attempt to process the order
     """
 
     def __call__(self, client, context, next_step):
@@ -43,8 +43,8 @@ class SetupDueDate(Step):
         )
 
         # means that's first attempt to process an order
-        # send notification to the customer
-        send_email_notification(client, context.order)
+        # sends a notification to the customer
+        send_mpt_notification(client, context)
 
         next_step(client, context)
 

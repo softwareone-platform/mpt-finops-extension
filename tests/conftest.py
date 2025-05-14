@@ -657,11 +657,6 @@ def mock_env_webhook_secret():
 
 
 @pytest.fixture()
-def mock_email_notification_sender():
-    return "email_sender"
-
-
-@pytest.fixture()
 def mocked_next_step(mocker):
     return mocker.MagicMock()
 
