@@ -1,4 +1,5 @@
 from ffc.flows.error import ERR_ORDER_TYPE_NOT_SUPPORTED
+from ffc.flows.order import OrderContext
 from ffc.flows.steps.utils import (
     reset_order_error,
     set_order_error,
@@ -14,9 +15,7 @@ def test_switch_order_to_failed(
         "ffc.flows.steps.utils.fail_order",
         return_value=failed_purchase_order,
     )
-    mock_send_email_notifications = mocker.patch(
-        "ffc.flows.steps.utils.send_email_notification"
-    )
+    mock_send_mpt_notifications = mocker.patch("ffc.flows.steps.utils.send_mpt_notification")
 
     failed_order = switch_order_to_failed(
         mpt_client,
@@ -32,9 +31,9 @@ def test_switch_order_to_failed(
         ERR_ORDER_TYPE_NOT_SUPPORTED.to_dict(order_type="Purchase"),
         parameters=no_due_date_order["parameters"],
     )
-    mock_send_email_notifications.assert_called_once_with(
+    mock_send_mpt_notifications.assert_called_once_with(
         mpt_client,
-        failed_purchase_order,
+        OrderContext.from_order(failed_purchase_order),
     )
 
 

@@ -28,8 +28,8 @@ def test_purchase_order(
         "ffc.flows.steps.order.complete_order",
         return_value=processing_purchase_order,
     )
-    mocked_send_email_notification_complete_order = mocker.patch(
-        "ffc.flows.steps.order.send_email_notification",
+    mocked_send_mpt_notification_complete_order = mocker.patch(
+        "ffc.flows.steps.order.send_mpt_notification",
     )
     mocked_update_order_finops = mocker.patch("ffc.flows.steps.finops.update_order")
     mocked_update_order = mocker.patch("ffc.flows.steps.order.update_order")
@@ -38,9 +38,7 @@ def test_purchase_order(
     mocked_ffc_client = mocker.MagicMock()
     mocked_ffc_client.get_employee.return_value = ffc_employee
     mocked_ffc_client.get_organizations_by_external_id.return_value = [ffc_organization]
-    mocker.patch(
-        "ffc.flows.steps.finops.get_ffc_client", return_value=mocked_ffc_client
-    )
+    mocker.patch("ffc.flows.steps.finops.get_ffc_client", return_value=mocked_ffc_client)
 
     fulfill_order(mpt_client, processing_purchase_order)
 
@@ -67,10 +65,7 @@ def test_purchase_order(
             "lines": [{"id": "ALI-2119-4550-8674-5962-0001"}],
         },
     )
-    mocked_send_email_notification_complete_order.assert_called_once_with(
-        mpt_client,
-        processing_purchase_order,
-    )
+    mocked_send_mpt_notification_complete_order.assert_called_once()
     mocked_complete_order.assert_called_once_with(
         mpt_client,
         processing_purchase_order["id"],
@@ -151,16 +146,14 @@ def test_terminate_order(
         "ffc.flows.steps.order.complete_order",
         return_value=processing_termination_order,
     )
-    mocked_send_email_notification_complete_order = mocker.patch(
-        "ffc.flows.steps.order.send_email_notification",
+    mocked_send_mpt_notification_complete_order = mocker.patch(
+        "ffc.flows.steps.order.send_mpt_notification",
     )
     mocked_update_order = mocker.patch("ffc.flows.steps.order.update_order")
 
     mocked_ffc_client = mocker.MagicMock()
     mocked_ffc_client.get_organizations_by_external_id.return_value = [ffc_organization]
-    mocker.patch(
-        "ffc.flows.steps.finops.get_ffc_client", return_value=mocked_ffc_client
-    )
+    mocker.patch("ffc.flows.steps.finops.get_ffc_client", return_value=mocked_ffc_client)
 
     fulfill_order(mpt_client, processing_termination_order)
 
@@ -170,10 +163,7 @@ def test_terminate_order(
         template=template,
     )
 
-    mocked_send_email_notification_complete_order.assert_called_once_with(
-        mpt_client,
-        processing_termination_order,
-    )
+    mocked_send_mpt_notification_complete_order.assert_called_once()
     mocked_complete_order.assert_called_once_with(
         mpt_client,
         processing_termination_order["id"],
@@ -215,9 +205,7 @@ def test_other_order_types(
     order_to_fail,
 ):
     order_to_fail = request.getfixturevalue(order_to_fail)
-    mocked_switch_order_to_failed = mocker.patch(
-        "ffc.flows.steps.order.switch_order_to_failed"
-    )
+    mocked_switch_order_to_failed = mocker.patch("ffc.flows.steps.order.switch_order_to_failed")
 
     fulfill_order(mpt_client, order_to_fail)
 

@@ -29,8 +29,8 @@ def test_complete_order(
         "ffc.flows.steps.order.get_product_template_or_default",
         return_value=template,
     )
-    mocked_send_email_notification = mocker.patch(
-        "ffc.flows.steps.order.send_email_notification",
+    mocked_send_mpt_notification = mocker.patch(
+        "ffc.flows.steps.order.send_mpt_notification",
     )
 
     ctx = OrderContext(order=processing_purchase_order)
@@ -46,8 +46,8 @@ def test_complete_order(
         template,
         parameters=processing_purchase_order["parameters"],
     )
-    mocked_send_email_notification.assert_called_once_with(
-        mpt_client, completed_purchase_order
+    mocked_send_mpt_notification.assert_called_once_with(
+        mpt_client, OrderContext.from_order(completed_purchase_order)
     )
 
 
@@ -124,8 +124,8 @@ def test_query_if_invalid(
         "ffc.flows.steps.order.get_product_template_or_default",
         return_value=template,
     )
-    mocked_send_email_notification = mocker.patch(
-        "ffc.flows.steps.order.send_email_notification",
+    mocked_send_mpt_notification = mocker.patch(
+        "ffc.flows.steps.order.send_mpt_notification",
     )
 
     ctx = OrderContext(
@@ -142,10 +142,7 @@ def test_query_if_invalid(
         processing_purchase_order["id"],
         template=template,
     )
-    mocked_send_email_notification.assert_called_once_with(
-        mpt_client,
-        querying_purchase_order,
-    )
+    mocked_send_mpt_notification.assert_called_once_with(mpt_client, ctx)
 
 
 def test_do_not_query_if_valid(
@@ -165,8 +162,8 @@ def test_do_not_query_if_valid(
         "ffc.flows.steps.order.get_product_template_or_default",
         return_value=template,
     )
-    mocked_send_email_notification = mocker.patch(
-        "ffc.flows.steps.order.send_email_notification",
+    mocked_send_mpt_notification = mocker.patch(
+        "ffc.flows.steps.order.send_mpt_notification",
     )
 
     ctx = OrderContext(
@@ -179,7 +176,7 @@ def test_do_not_query_if_valid(
 
     mocked_next_step.assert_called_once()
     mocked_query_order.assert_not_called()
-    mocked_send_email_notification.assert_not_called()
+    mocked_send_mpt_notification.assert_not_called()
 
 
 def test_setup_agreement_external_id(
@@ -218,10 +215,7 @@ def test_reset_order_error(
 
     assert ctx.order["error"] is None
     assert all(
-        (
-            param["error"] is None
-            for param in ctx.order["parameters"][PARAM_PHASE_ORDERING]
-        ),
+        (param["error"] is None for param in ctx.order["parameters"][PARAM_PHASE_ORDERING]),
     )
 
 
@@ -238,9 +232,7 @@ def test_start_order_processing_same_template(
         return_value=template,
     )
     mocked_update_order = mocker.patch("ffc.flows.steps.order.update_order")
-    mocked_send_email_notification = mocker.patch(
-        "ffc.flows.steps.order.send_email_notification"
-    )
+    mocked_send_mpt_notification = mocker.patch("ffc.flows.steps.order.send_mpt_notification")
     ctx = OrderContext(order=processing_purchase_order)
     step = StartOrderProcessing("Purchase")
 
@@ -248,7 +240,7 @@ def test_start_order_processing_same_template(
 
     mocked_next_step.assert_called_once()
     mocked_update_order.assert_not_called()
-    mocked_send_email_notification.assert_not_called()
+    mocked_send_mpt_notification.assert_not_called()
 
 
 def test_start_order_processing(
@@ -263,9 +255,7 @@ def test_start_order_processing(
         return_value=template,
     )
     mocked_update_order = mocker.patch("ffc.flows.steps.order.update_order")
-    mocked_send_email_notification = mocker.patch(
-        "ffc.flows.steps.order.send_email_notification"
-    )
+    mocked_send_mpt_notification = mocker.patch("ffc.flows.steps.order.send_mpt_notification")
     ctx = OrderContext(order=processing_purchase_order)
     step = StartOrderProcessing("Purchase")
 
@@ -277,7 +267,7 @@ def test_start_order_processing(
         processing_purchase_order["id"],
         template=template,
     )
-    mocked_send_email_notification.assert_not_called()
+    mocked_send_mpt_notification.assert_not_called()
 
 
 def test_start_order_processing_send_notification(
@@ -293,9 +283,7 @@ def test_start_order_processing_send_notification(
         return_value=template,
     )
     mocked_update_order = mocker.patch("ffc.flows.steps.order.update_order")
-    mocked_send_email_notification = mocker.patch(
-        "ffc.flows.steps.order.send_email_notification"
-    )
+    mocked_send_mpt_notification = mocker.patch("ffc.flows.steps.order.send_mpt_notification")
     ctx = OrderContext(order=first_attempt_processing_purchase_order)
     step = StartOrderProcessing("Purchase")
 
@@ -303,9 +291,9 @@ def test_start_order_processing_send_notification(
 
     mocked_next_step.assert_called_once()
     mocked_update_order.assert_not_called()
-    mocked_send_email_notification.assert_called_once_with(
+    mocked_send_mpt_notification.assert_called_once_with(
         mpt_client,
-        first_attempt_processing_purchase_order,
+        OrderContext.from_order(first_attempt_processing_purchase_order),
     )
 
 
@@ -315,9 +303,7 @@ def test_fail_order(
     mpt_client,
     processing_purchase_order,
 ):
-    mocked_switch_order_to_failed = mocker.patch(
-        "ffc.flows.steps.order.switch_order_to_failed"
-    )
+    mocked_switch_order_to_failed = mocker.patch("ffc.flows.steps.order.switch_order_to_failed")
     ctx = OrderContext(order=processing_purchase_order)
     step = FailOrder(ERR_ORDER_TYPE_NOT_SUPPORTED)
 
@@ -327,7 +313,5 @@ def test_fail_order(
     mocked_switch_order_to_failed.assert_called_once_with(
         mpt_client,
         processing_purchase_order,
-        ERR_ORDER_TYPE_NOT_SUPPORTED.to_dict(
-            order_type=processing_purchase_order["type"]
-        ),
+        ERR_ORDER_TYPE_NOT_SUPPORTED.to_dict(order_type=processing_purchase_order["type"]),
     )
