@@ -13,6 +13,7 @@ PARAM_DUE_DATE = "dueDate"
 PARAM_ORGANIZATION_NAME = "organizationName"
 PARAM_CURRENCY = "currency"
 PARAM_ADMIN_CONTACT = "adminContact"
+PARAM_IS_NEW_USER = "isNewUser"
 
 
 def get_parameter(parameter_phase, source, param_external_id):
@@ -91,6 +92,26 @@ def set_due_date(order, due_date):
 
     param = get_fulfillment_parameter(updated_order, PARAM_DUE_DATE)
     param["value"] = due_date
+
+    return updated_order
+
+
+def set_is_new_user(order, is_new):
+    """
+    Set Is New User parameter
+    Args:
+        order (dict): Order to be updated
+        is_new (bool): due date
+    """
+    updated_order = copy.deepcopy(order)
+
+    param_value = ["Yes"] if is_new else None
+    param = get_fulfillment_parameter(updated_order, PARAM_IS_NEW_USER)
+    if param:
+        # TODO: remove after v5, case when there are processing orders
+        # without the parameter is_new_user
+        # parameter was introduced after v4 release
+        param["value"] = param_value
 
     return updated_order
 

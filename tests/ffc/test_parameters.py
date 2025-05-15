@@ -2,10 +2,13 @@ from datetime import date
 
 from ffc.parameters import (
     PARAM_DUE_DATE,
+    PARAM_IS_NEW_USER,
     get_due_date,
+    get_fulfillment_parameter,
     get_ordering_parameter,
     get_parameter,
     set_due_date,
+    set_is_new_user,
     set_ordering_parameter_error,
 )
 
@@ -75,3 +78,10 @@ def test_set_due_date(processing_purchase_order):
     updated_order = set_due_date(processing_purchase_order, new_due_date)
 
     assert get_due_date(updated_order) == new_due_date
+
+
+def test_set_is_new_user(processing_purchase_order):
+    updated_order = set_is_new_user(processing_purchase_order, True)
+
+    is_new_user = get_fulfillment_parameter(updated_order, PARAM_IS_NEW_USER)
+    assert is_new_user["value"] == ["Yes"]
