@@ -7,6 +7,7 @@ from ffc.flows.steps.finops import (
 from ffc.flows.steps.order import (
     CheckOrderParameters,
     CompleteOrder,
+    CompletePurchaseOrder,
     FailOrder,
     QueryIfInvalid,
     ResetOrderErrors,
@@ -32,4 +33,5 @@ __all__ = [
     "StartOrderProcessing",
     "FailOrder",
     "OrderTypeIsNotSupported",
+    "CompletePurchaseOrder",
 ]

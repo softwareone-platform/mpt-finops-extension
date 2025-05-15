@@ -68,7 +68,14 @@ def fulfillment_parameters_factory():
                 "type": "Date",
                 "phase": "Fulfillment",
                 "value": "2025-01-01",
-            }
+            },
+            {
+                "id": "PAR-7208-0459-0008",
+                "externalId": "isNewUser",
+                "name": "Is New User?",
+                "type": "Checkbox",
+                "phase": "Fulfillment",
+            },
         ]
 
     return _fulfillment_parameters
@@ -520,7 +527,12 @@ def processing_configuration_order(order_factory):
 
 @pytest.fixture()
 def first_attempt_processing_purchase_order(processing_purchase_order):
-    for param in processing_purchase_order["parameters"]["fulfillment"]:
+    params_with_values = [
+        p
+        for p in processing_purchase_order["parameters"]["fulfillment"]
+        if "value" in p
+    ]
+    for param in params_with_values:
         del param["value"]
 
     return processing_purchase_order

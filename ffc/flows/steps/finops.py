@@ -1,6 +1,7 @@
 import logging
 
 from mpt_extension_sdk.flows.pipeline import Step
+from mpt_extension_sdk.mpt_http.mpt import update_order
 
 from ffc.client import FinOpsNotFoundError, get_ffc_client
 from ffc.parameters import (
@@ -8,6 +9,7 @@ from ffc.parameters import (
     PARAM_CURRENCY,
     PARAM_ORGANIZATION_NAME,
     get_ordering_parameter,
+    set_is_new_user,
 )
 
 logger = logging.getLogger(__name__)
@@ -28,6 +30,10 @@ class CreateEmployee(Step):
 
         try:
             employee = ffc_client.get_employee(administrator["email"])
+            context.order = set_is_new_user(context.order, True)
+            update_order(
+                client, context.order["id"], parameters=context.order["parameters"]
+            )
             logger.info(f"{context}: employee exists {employee['id']}")
         except FinOpsNotFoundError:
             employee = ffc_client.create_employee(
@@ -82,7 +88,9 @@ class DeleteOrganization(Step):
         order = context.order
         agreement_id = order["agreement"]["id"]
 
-        organizations = ffc_client.get_organizations_by_external_id(agreement_id=agreement_id)
+        organizations = ffc_client.get_organizations_by_external_id(
+            agreement_id=agreement_id
+        )
         organization = organizations and organizations[0]
 
         if organization and organization["status"] != DELETED_ORGANIZATION:

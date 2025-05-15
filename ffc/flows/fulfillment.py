@@ -15,6 +15,7 @@ from ffc.flows.steps import (
     CheckDueDate,
     CheckOrderParameters,
     CompleteOrder,
+    CompletePurchaseOrder,
     CreateEmployee,
     CreateOrganization,
     CreateSubscription,
@@ -44,7 +45,7 @@ purchase = Pipeline(
     SetupAgreementExternalId(),
     CreateSubscription(),
     ResetDueDate(),
-    CompleteOrder(PURCHASE_TEMPLATE_NAME),
+    CompletePurchaseOrder(PURCHASE_TEMPLATE_NAME),
 )
 
 terminate = Pipeline(

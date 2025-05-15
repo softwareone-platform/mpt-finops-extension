@@ -31,6 +31,7 @@ def test_purchase_order(
     mocked_send_email_notification_complete_order = mocker.patch(
         "ffc.flows.steps.order.send_email_notification",
     )
+    mocked_update_order_finops = mocker.patch("ffc.flows.steps.finops.update_order")
     mocked_update_order = mocker.patch("ffc.flows.steps.order.update_order")
     mocked_update_agreement = mocker.patch("ffc.flows.steps.order.update_agreement")
 
@@ -43,6 +44,7 @@ def test_purchase_order(
 
     fulfill_order(mpt_client, processing_purchase_order)
 
+    mocked_update_order_finops.assert_called_once()
     mocked_update_order.assert_called_once_with(
         mpt_client,
         processing_purchase_order["id"],
@@ -82,7 +84,15 @@ def test_purchase_order(
                     "phase": "Fulfillment",
                     "type": "Date",
                     "value": None,
-                }
+                },
+                {
+                    "id": "PAR-7208-0459-0008",
+                    "externalId": "isNewUser",
+                    "name": "Is New User?",
+                    "type": "Checkbox",
+                    "phase": "Fulfillment",
+                    "value": ["Yes"],
+                },
             ],
             "ordering": [
                 {
@@ -177,7 +187,14 @@ def test_terminate_order(
                     "phase": "Fulfillment",
                     "type": "Date",
                     "value": None,
-                }
+                },
+                {
+                    "id": "PAR-7208-0459-0008",
+                    "externalId": "isNewUser",
+                    "name": "Is New User?",
+                    "type": "Checkbox",
+                    "phase": "Fulfillment",
+                },
             ],
             "ordering": [],
         },
@@ -207,5 +224,5 @@ def test_other_order_types(
     mocked_switch_order_to_failed.assert_called_once_with(
         mpt_client,
         order_to_fail,
-        ERR_ORDER_TYPE_NOT_SUPPORTED.to_dict(order_type=order_to_fail["type"])
+        ERR_ORDER_TYPE_NOT_SUPPORTED.to_dict(order_type=order_to_fail["type"]),
     )

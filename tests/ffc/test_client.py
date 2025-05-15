@@ -226,7 +226,6 @@ def test_delete_organization(mocker, mock_jwt_encoder, ffc_client_settings):
                     "X-Request-Id": "uuid-1",
                 },
             ),
-
         ],
     )
 

@@ -21,7 +21,7 @@ def test_switch_order_to_failed(
     failed_order = switch_order_to_failed(
         mpt_client,
         processing_purchase_order,
-        ERR_ORDER_TYPE_NOT_SUPPORTED.to_dict(order_type="Purchase")
+        ERR_ORDER_TYPE_NOT_SUPPORTED.to_dict(order_type="Purchase"),
     )
 
     no_due_date_order = set_due_date(processing_purchase_order, None)

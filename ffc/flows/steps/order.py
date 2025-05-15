@@ -18,6 +18,7 @@ from ffc.flows.order import (
     MPT_ORDER_STATUS_COMPLETED,
     MPT_ORDER_STATUS_PROCESSING,
     MPT_ORDER_STATUS_QUERYING,
+    PURCHASE_EXISTING_TEMPLATE_NAME,
     set_template,
 )
 from ffc.flows.steps.utils import reset_order_error, switch_order_to_failed
@@ -25,8 +26,10 @@ from ffc.notifications import send_email_notification
 from ffc.parameters import (
     PARAM_ADMIN_CONTACT,
     PARAM_CURRENCY,
+    PARAM_IS_NEW_USER,
     PARAM_ORGANIZATION_NAME,
     get_due_date,
+    get_fulfillment_parameter,
     get_ordering_parameter,
     reset_ordering_parameters_error,
     set_ordering_parameter_error,
@@ -57,15 +60,22 @@ class SetupAgreementExternalId(Step):
 
 
 class CompleteOrder(Step):
+    """
+    Completes the order using pass template name or default
+    """
+
     def __init__(self, template_name):
         self.template_name = template_name
+
+    def get_template_name(self, client, context):
+        return self.template_name
 
     def __call__(self, client, context, next_step):
         template = get_product_template_or_default(
             client,
             context.product_id,
             MPT_ORDER_STATUS_COMPLETED,
-            self.template_name,
+            self.get_template_name(client, context),
         )
         agreement = context.order["agreement"]
         context.order = complete_order(
@@ -78,6 +88,22 @@ class CompleteOrder(Step):
         send_email_notification(client, context.order)
         logger.info(f"{context}: order has been completed successfully")
         next_step(client, context)
+
+
+class CompletePurchaseOrder(CompleteOrder):
+    def get_template_name(self, client, context):
+        """
+        Returns special template if user has purchased another account for FinOps
+        by default returns usual purchase template
+        """
+        order = context.order
+
+        is_new_user_param = get_fulfillment_parameter(order, PARAM_IS_NEW_USER)
+
+        if is_new_user_param.get("value") == ["Yes"]:
+            return PURCHASE_EXISTING_TEMPLATE_NAME
+
+        return super().get_template_name(client, context)
 
 
 class CheckOrderParameters(Step):

@@ -13,6 +13,7 @@ ORDER_TYPE_PURCHASE = "Purchase"
 ORDER_TYPE_TERMINATE = "Termination"
 
 PURCHASE_TEMPLATE_NAME = "Purchase"
+PURCHASE_EXISTING_TEMPLATE_NAME = "PurchaseExisting"
 TERMINATE_TEMPLATE_NAME = "Terminate"
 
 
@@ -36,7 +37,7 @@ def is_terminate_order(order):
 
     Returns:
         bool: True if it is a terminate order, False otherwise.
-     """
+    """
     return order["type"] == ORDER_TYPE_TERMINATE
 
 

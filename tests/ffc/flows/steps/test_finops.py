@@ -8,7 +8,9 @@ from ffc.flows.steps.finops import (
 from ffc.parameters import (
     PARAM_ADMIN_CONTACT,
     PARAM_CURRENCY,
+    PARAM_IS_NEW_USER,
     PARAM_ORGANIZATION_NAME,
+    get_fulfillment_parameter,
     get_ordering_parameter,
 )
 
@@ -25,6 +27,7 @@ def test_create_employee_exists(
     mocker.patch(
         "ffc.flows.steps.finops.get_ffc_client", return_value=mocked_ffc_client
     )
+    mocked_update_order = mocker.patch("ffc.flows.steps.finops.update_order")
 
     ctx = OrderContext(order=processing_purchase_order)
     step = CreateEmployee()
@@ -38,6 +41,10 @@ def test_create_employee_exists(
         PARAM_ADMIN_CONTACT,
     )["value"]
     mocked_ffc_client.get_employee.assert_called_once_with(administrator["email"])
+
+    is_new_user = get_fulfillment_parameter(ctx.order, PARAM_IS_NEW_USER)
+    assert is_new_user["value"] == ["Yes"]
+    mocked_update_order.assert_called_once()
 
 
 def test_create_employee(
@@ -53,6 +60,7 @@ def test_create_employee(
     mocker.patch(
         "ffc.flows.steps.finops.get_ffc_client", return_value=mocked_ffc_client
     )
+    mocked_update_order = mocker.patch("ffc.flows.steps.finops.update_order")
 
     ctx = OrderContext(order=processing_purchase_order)
     step = CreateEmployee()
@@ -69,6 +77,10 @@ def test_create_employee(
         administrator["email"],
         f"{administrator['firstName']} {administrator['lastName']}",
     )
+
+    is_new_user = get_fulfillment_parameter(ctx.order, PARAM_IS_NEW_USER)
+    assert is_new_user.get("value") is None
+    mocked_update_order.assert_not_called()
 
 
 def test_create_organization(
@@ -150,7 +162,9 @@ def test_delete_organization(
     mocked_ffc_client = mocker.MagicMock()
     mocked_ffc_client.delete_organization.return_value = None
     mocked_ffc_client.get_organizations_by_external_id.return_value = [ffc_organization]
-    mocker.patch("ffc.flows.steps.finops.get_ffc_client", return_value=mocked_ffc_client)
+    mocker.patch(
+        "ffc.flows.steps.finops.get_ffc_client", return_value=mocked_ffc_client
+    )
 
     ctx = OrderContext(order=processing_termination_order)
     step = DeleteOrganization()
@@ -161,7 +175,9 @@ def test_delete_organization(
     mocked_ffc_client.get_organizations_by_external_id.assert_called_once_with(
         agreement_id=processing_termination_order["agreement"]["id"],
     )
-    mocked_ffc_client.delete_organization.assert_called_once_with(ffc_organization["id"])
+    mocked_ffc_client.delete_organization.assert_called_once_with(
+        ffc_organization["id"]
+    )
 
 
 def test_delete_organization_deleted_or_not_found(
@@ -174,7 +190,9 @@ def test_delete_organization_deleted_or_not_found(
     ffc_organization["status"] = "deleted"
     mocked_ffc_client = mocker.MagicMock()
     mocked_ffc_client.get_organizations_by_external_id.return_value = [ffc_organization]
-    mocker.patch("ffc.flows.steps.finops.get_ffc_client", return_value=mocked_ffc_client)
+    mocker.patch(
+        "ffc.flows.steps.finops.get_ffc_client", return_value=mocked_ffc_client
+    )
 
     ctx = OrderContext(order=processing_termination_order)
     step = DeleteOrganization()
@@ -189,7 +207,9 @@ def test_delete_organization_deleted_or_not_found(
     mocked_ffc_client.delete_organization.assert_not_called()
 
     mocked_ffc_client.get_organizations_by_external_id.return_value = []
-    mocker.patch("ffc.flows.steps.finops.get_ffc_client", return_value=mocked_ffc_client)
+    mocker.patch(
+        "ffc.flows.steps.finops.get_ffc_client", return_value=mocked_ffc_client
+    )
 
     step(mpt_client, ctx, mocked_next_step)
 

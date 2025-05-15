@@ -1,15 +1,16 @@
 from ffc.flows.error import ERR_ORDER_TYPE_NOT_SUPPORTED
-from ffc.flows.order import OrderContext
+from ffc.flows.order import PURCHASE_EXISTING_TEMPLATE_NAME, OrderContext
 from ffc.flows.steps.order import (
     CheckOrderParameters,
     CompleteOrder,
+    CompletePurchaseOrder,
     FailOrder,
     QueryIfInvalid,
     ResetOrderErrors,
     SetupAgreementExternalId,
     StartOrderProcessing,
 )
-from ffc.parameters import PARAM_PHASE_ORDERING
+from ffc.parameters import PARAM_PHASE_ORDERING, set_is_new_user
 
 
 def test_complete_order(
@@ -48,6 +49,32 @@ def test_complete_order(
     mocked_send_email_notification.assert_called_once_with(
         mpt_client, completed_purchase_order
     )
+
+
+def test_complete_purchase_order_template(
+    mocked_next_step,
+    mpt_client,
+    processing_purchase_order,
+):
+    ctx = OrderContext(order=processing_purchase_order)
+    step = CompletePurchaseOrder("Complete Template")
+
+    template_name = step.get_template_name(mpt_client, ctx)
+    assert template_name == "Complete Template"
+
+
+def test_complete_purchase_order_existing_user(
+    mocked_next_step,
+    mpt_client,
+    processing_purchase_order,
+):
+    order = set_is_new_user(processing_purchase_order, True)
+
+    ctx = OrderContext(order=order)
+    step = CompletePurchaseOrder("Complete Template")
+
+    template_name = step.get_template_name(mpt_client, ctx)
+    assert template_name == PURCHASE_EXISTING_TEMPLATE_NAME
 
 
 def test_check_order_parameters_passed(
@@ -300,5 +327,7 @@ def test_fail_order(
     mocked_switch_order_to_failed.assert_called_once_with(
         mpt_client,
         processing_purchase_order,
-        ERR_ORDER_TYPE_NOT_SUPPORTED.to_dict(order_type=processing_purchase_order["type"]),
+        ERR_ORDER_TYPE_NOT_SUPPORTED.to_dict(
+            order_type=processing_purchase_order["type"]
+        ),
     )
