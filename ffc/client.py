@@ -10,6 +10,7 @@ import aiofiles
 import httpx
 import jwt
 import requests
+from django.conf import settings
 from requests import HTTPError
 
 logger = logging.getLogger(__name__)
@@ -168,6 +169,28 @@ class FinOpsClient:
         except jwt.ExpiredSignatureError:
             return True
 
+class HttpxMTPAPIClient:
+    def __init__(self, base_url: str, mtp_token: str):
+        self.api_base_url = base_url
+        self.client = httpx.AsyncClient(base_url=self.api_base_url)
+        self.headers = {"Authorization": f"Bearer {mtp_token}"}
+    async def fetch_subscription_and_agreement_details(
+        self, subscription_search_value
+    ):
+        endpoint = (
+            self.api_base_url
+            + f"/commerce/subscriptions?eq(externalIds.vendor,"
+              f"{subscription_search_value})&select=agreement,agreement.parameters"
+        )
+        try:
+            response = await self.client.get(url=endpoint, headers=self.headers)
+            response.raise_for_status()
+            data = response.json()
+            return data.get("data")
+        except httpx.HTTPError as error:
+            logger.exception(f"Request to get subscription details: {error}")
+            return None
+
 
 class HttpxFFCAPIClient:
     """
@@ -294,13 +317,12 @@ class HttpxFFCAPIClient:
 
 _FFC_CLIENT = None
 _HTTPX_FFC_API_CLIENT = None
-
+_HTTPX_MTP_API_CLIENT = None
 
 def get_httpx_ffc_api_client():
     """
     This returns an instance of the HttpxFFCAPIClient class.
     """
-    from django.conf import settings
 
     global _HTTPX_FFC_API_CLIENT
     if not _HTTPX_FFC_API_CLIENT:
@@ -312,6 +334,21 @@ def get_httpx_ffc_api_client():
 
     return _HTTPX_FFC_API_CLIENT
 
+def get_httpx_mtp_api_client():
+    """
+    This returns an instance of the HttpxMTPAPIClient class.
+    """
+
+    global _HTTPX_MTP_API_CLIENT
+    if not _HTTPX_MTP_API_CLIENT:
+        _HTTPX_MTP_API_CLIENT = HttpxMTPAPIClient(
+            base_url=settings.EXTENSION_CONFIG["MPT_API_BASE_URL"],
+            mtp_token=settings.EXTENSION_CONFIG["MPT_MTP_TOKEN"]
+        )
+
+    return _HTTPX_MTP_API_CLIENT
+
+
 
 def get_ffc_client():
     """
@@ -320,7 +357,6 @@ def get_ffc_client():
     Returns:
         FinOpsClient: An instance of the `FinOpsClient`.
     """
-    from django.conf import settings
 
     global _FFC_CLIENT
     if not _FFC_CLIENT:
