@@ -93,6 +93,7 @@ relative_files = true
 [tool.ruff]
 extend-exclude = [".vscode", ".devcontainer", "swo"]
 output-format = "full"
+line-length = 100
 
 [tool.ruff.lint]
 
