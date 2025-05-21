@@ -145,9 +145,7 @@ def subscriptions_factory(lines_factory):
         commitment_date=None,
         lines=None,
     ):
-        start_date = (
-            start_date.isoformat() if start_date else datetime.now(UTC).isoformat()
-        )
+        start_date = start_date.isoformat() if start_date else datetime.now(UTC).isoformat()
         lines = lines_factory() if lines is None else lines
         return [
             {
@@ -250,8 +248,7 @@ def agreement_factory(buyer, order_parameters_factory, fulfillment_parameters_fa
             "subscriptions": subscriptions,
             "parameters": {
                 "ordering": ordering_parameters or order_parameters_factory(),
-                "fulfillment": fulfillment_parameters
-                or fulfillment_parameters_factory(),
+                "fulfillment": fulfillment_parameters or fulfillment_parameters_factory(),
             },
         }
 
@@ -419,6 +416,12 @@ def agreement(buyer, licensee, listing):
                 "country": "US",
             },
         },
+        "client": {
+            "id": "ACC-9121-8944",
+            "href": "/accounts/sellers/ACC-9121-8944",
+            "name": "Software LN",
+            "icon": "/static/ACC-9121-8944/icon.png",
+        },
         "product": {
             "id": "PRD-1111-1111",
         },
@@ -528,9 +531,7 @@ def processing_configuration_order(order_factory):
 @pytest.fixture()
 def first_attempt_processing_purchase_order(processing_purchase_order):
     params_with_values = [
-        p
-        for p in processing_purchase_order["parameters"]["fulfillment"]
-        if "value" in p
+        p for p in processing_purchase_order["parameters"]["fulfillment"] if "value" in p
     ]
     for param in params_with_values:
         del param["value"]
@@ -654,11 +655,6 @@ def extension_settings(settings):
 @pytest.fixture()
 def mock_env_webhook_secret():
     return '{ "webhook_secret": "WEBHOOK_SECRET" }'
-
-
-@pytest.fixture()
-def mock_email_notification_sender():
-    return "email_sender"
 
 
 @pytest.fixture()

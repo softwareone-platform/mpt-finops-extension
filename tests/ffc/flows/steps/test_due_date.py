@@ -20,22 +20,18 @@ def test_setup_due_date(
     step = SetupDueDate()
     settings.EXTENSION_CONFIG["DUE_DATE_DAYS"] = 10
 
-    mocked_send_email_notification = mocker.patch(
-        "ffc.flows.steps.due_date.send_email_notification"
-    )
+    mocked_send_mpt_notification = mocker.patch("ffc.flows.steps.due_date.send_mpt_notification")
     mocked_update_order = mocker.patch("ffc.flows.steps.due_date.update_order")
 
     step(mpt_client, ctx, mocked_next_step)
 
     next_due_date = date(2025, 2, 11)
     # TODO: should be in fixtures
-    order_with_due_date = set_due_date(
-        first_attempt_processing_purchase_order, next_due_date
-    )
+    order_with_due_date = set_due_date(first_attempt_processing_purchase_order, next_due_date)
 
     assert get_due_date(ctx.order) == next_due_date
-    mocked_send_email_notification.assert_called_once_with(
-        mpt_client, order_with_due_date
+    mocked_send_mpt_notification.assert_called_once_with(
+        mpt_client, OrderContext.from_order(order_with_due_date)
     )
     mocked_update_order.assert_called_once_with(
         mpt_client,
@@ -59,15 +55,13 @@ def test_setup_due_date_was_setup(
     step = SetupDueDate()
     settings.EXTENSION_CONFIG["DUE_DATE_DAYS"] = 10
 
-    mocked_send_email_notification = mocker.patch(
-        "ffc.flows.steps.due_date.send_email_notification"
-    )
+    mocked_send_mpt_notification = mocker.patch("ffc.flows.steps.due_date.send_mpt_notification")
     mocked_update_order = mocker.patch("ffc.flows.steps.due_date.update_order")
 
     step(mpt_client, ctx, mocked_next_step)
 
     assert get_due_date(ctx.order) == due_date
-    mocked_send_email_notification.assert_not_called()
+    mocked_send_mpt_notification.assert_not_called()
     mocked_update_order.assert_not_called()
     mocked_next_step.assert_called_once()
 
@@ -87,15 +81,11 @@ def test_reset_due_date(
 
 
 @freeze_time("2024-12-01")
-def test_check_due_date(
-    mocker, mocked_next_step, mpt_client, processing_purchase_order
-):
+def test_check_due_date(mocker, mocked_next_step, mpt_client, processing_purchase_order):
     ctx = OrderContext(order=processing_purchase_order)
     step = CheckDueDate()
 
-    mocked_switch_order_to_failed = mocker.patch(
-        "ffc.flows.steps.due_date.switch_order_to_failed"
-    )
+    mocked_switch_order_to_failed = mocker.patch("ffc.flows.steps.due_date.switch_order_to_failed")
 
     step(mpt_client, ctx, mocked_next_step)
 
@@ -104,15 +94,11 @@ def test_check_due_date(
 
 
 @freeze_time("2025-02-01")
-def test_check_due_date_fail_order(
-    mocker, mocked_next_step, mpt_client, processing_purchase_order
-):
+def test_check_due_date_fail_order(mocker, mocked_next_step, mpt_client, processing_purchase_order):
     ctx = OrderContext(order=processing_purchase_order)
     step = CheckDueDate()
 
-    mocked_switch_order_to_failed = mocker.patch(
-        "ffc.flows.steps.due_date.switch_order_to_failed"
-    )
+    mocked_switch_order_to_failed = mocker.patch("ffc.flows.steps.due_date.switch_order_to_failed")
 
     step(mpt_client, ctx, mocked_next_step)
 

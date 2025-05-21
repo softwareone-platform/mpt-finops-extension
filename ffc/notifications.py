@@ -4,22 +4,21 @@ import os
 from dataclasses import dataclass
 from datetime import datetime
 
-import boto3
 import pymsteams
 from django.conf import settings
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from markdown_it import MarkdownIt
-from mpt_extension_sdk.mpt_http.mpt import get_rendered_template
+from mpt_extension_sdk.mpt_http.base import MPTClient
+from mpt_extension_sdk.mpt_http.mpt import NotifyCategories, get_rendered_template, notify
 
+from ffc.flows.order import OrderContext
 from ffc.parameters import PARAM_CONTACT, get_ordering_parameter
 
 logger = logging.getLogger(__name__)
 
 
 def dateformat(date_string):
-    return (
-        datetime.fromisoformat(date_string).strftime("%-d %B %Y") if date_string else ""
-    )
+    return datetime.fromisoformat(date_string).strftime("%-d %B %Y") if date_string else ""
 
 
 env = Environment(
@@ -118,97 +117,98 @@ def send_exception(
     )
 
 
-def send_email(recipient, subject, template_name, context):  # pragma: no cover
+def mpt_notify(
+    mpt_client,
+    account_id: str,
+    buyer_id: str,
+    subject: str,
+    template_name: str,
+    context: dict,
+) -> None:
+    """
+    Sends a notification through the MPT API using a specified template and context.
+
+    Parameters:
+    account_id: str
+        The identifier for the account associated with the notification.
+    buyer_id: str
+        The identifier for the buyer to whom the notification is sent.
+    subject: str
+        The subject of the notification email.
+    template_name: str
+        The name of the email template to be used, excluding the file extension.
+    context: dict
+        The context data to render the given email template.
+
+    Returns:
+    None
+
+    Raises:
+    Exception
+        Logs the exception if there is an issue during the notification process,
+        including the category, subject, and the rendered message.
+    """
     template = env.get_template(f"{template_name}.html")
-    rendered_email = template.render(context)
+    rendered_template = template.render(context)
 
-    access_key, secret_key = settings.EXTENSION_CONFIG["AWS_SES_CREDENTIALS"].split(":")
-
-    client = boto3.client(
-        "ses",
-        aws_access_key_id=access_key,
-        aws_secret_access_key=secret_key,
-        region_name=settings.EXTENSION_CONFIG["AWS_SES_REGION"],
-    )
     try:
-        client.send_email(
-            Source=settings.EXTENSION_CONFIG["EMAIL_NOTIFICATIONS_SENDER"],
-            Destination={
-                "ToAddresses": recipient,
-            },
-            Message={
-                "Subject": {"Data": subject, "Charset": "UTF-8"},
-                "Body": {
-                    "Html": {"Data": rendered_email, "Charset": "UTF-8"},
-                },
-            },
+        notify(
+            mpt_client,
+            NotifyCategories.ORDERS.value,
+            account_id,
+            buyer_id,
+            subject,
+            rendered_template,
         )
     except Exception:
         logger.exception(
-            f"Cannot send notification email with subject '{subject}' to: {recipient}",
+            f"Cannot send MPT API notification:"
+            f" Category: '{NotifyCategories.ORDERS.value}',"
+            f" Account ID: '{account_id}',"
+            f" Buyer ID: '{buyer_id}',"
+            f" Subject: '{subject}',"
+            f" Message: '{rendered_template}'"
         )
 
 
 def get_notifications_recipient(order):  # pragma: no cover
-    return (get_ordering_parameter(order, PARAM_CONTACT).get("value", {}) or {}).get(
-        "email"
-    ) or (order["agreement"]["buyer"].get("contact", {}) or {}).get("email")
+    return (get_ordering_parameter(order, PARAM_CONTACT).get("value", {}) or {}).get("email") or (
+        order["agreement"]["buyer"].get("contact", {}) or {}
+    ).get("email")
 
 
 def md2html(template):  # pragma: no cover
     return MarkdownIt("commonmark", {"breaks": True, "html": True}).render(template)
 
 
-def send_email_notification(client, order):  # pragma: no cover
+def send_mpt_notification(client: MPTClient, order_context: type[OrderContext]) -> None:
     """
-    Send a notification email to the customer according to the
+    Send an MPT notification to the customer according to the
     current order status.
-    It embeds the current order template into the email body.
-
-    Args:
-        client (MPTClient): The client used to consume the
-        MPT API.
-        order (dict): The order for which the notification should be sent.
+    It embeds the current order template into the body.
     """
-    email_notification_enabled = bool(
-        settings.EXTENSION_CONFIG.get("EMAIL_NOTIFICATIONS_ENABLED", False)
+    template_context = {
+        "order": order_context.order,
+        "activation_template": md2html(get_rendered_template(client, order_context.order_id)),
+        "api_base_url": settings.MPT_API_BASE_URL,
+        "portal_base_url": settings.MPT_PORTAL_BASE_URL,
+    }
+    buyer_name = order_context.order["agreement"]["buyer"]["name"]
+    subject = f"Order status update {order_context.order_id} " f"for {buyer_name}"
+    if order_context.order["status"] == "Querying":
+        subject = f"This order need your attention {order_context.order_id} " f"for {buyer_name}"
+    mpt_notify(
+        client,
+        order_context.order["agreement"]["client"]["id"],
+        order_context.order["agreement"]["buyer"]["id"],
+        subject,
+        "notification",
+        template_context,
     )
-
-    if email_notification_enabled:
-        recipient = get_notifications_recipient(order)
-        if not recipient:
-            logger.warning(
-                f"Cannot send email notifications for order {order['id']}: no recipient found"
-            )
-            return
-
-        context = {
-            "order": order,
-            "activation_template": md2html(get_rendered_template(client, order["id"])),
-            "api_base_url": settings.MPT_API_BASE_URL,
-            "portal_base_url": settings.MPT_PORTAL_BASE_URL,
-        }
-        subject = (
-            f"Order status update {order['id']} "
-            f"for {order['agreement']['buyer']['name']}"
-        )
-        if order["status"] == "Querying":
-            subject = (
-                f"This order need your attention {order['id']} "
-                f"for {order['agreement']['buyer']['name']}"
-            )
-        send_email(
-            [recipient],
-            subject,
-            "email",
-            context,
-        )
 
 
 @functools.cache
-def notify_unhandled_exception_in_teams(
-    process, order_id, traceback
-):  # pragma: no cover
+def notify_unhandled_exception_in_teams(process, order_id, traceback):  # pragma: no cover
     send_exception(
         f"Order {process} unhandled exception!",
         f"An unhandled exception has been raised while performing {process} "

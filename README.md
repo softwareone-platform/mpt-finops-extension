@@ -28,9 +28,6 @@ MPT_API_TOKEN=<vendor-api-token>
 MPT_ORDERS_API_POLLING_INTERVAL_SECS=120
 EXT_WEBHOOKS_SECRETS={"PRD-1111-1111": "<super-jwt-secret>"}
 EXT_MSTEAMS_WEBHOOK_URL=https://whatever.webhook.office.com/webhookb2/<...>
-EXT_AWS_SES_CREDENTIALS=<access-key>:<secret-key>
-EXT_EMAIL_NOTIFICATIONS_SENDER=no-reply@domain.com
-EXT_EMAIL_NOTIFICATIONS_ENABLED=1
 EXT_FFC_SUB=FTKN-1111-1111
 EXT_FFC_OPERATIONS_API_BASE_URL=https://api.finops.s1.show/ops
 EXT_FFC_OPERATIONS_SECRET=supersecret
@@ -52,9 +49,6 @@ MPT_API_TOKEN=<vendor-api-token>
 MPT_ORDERS_API_POLLING_INTERVAL_SECS=120
 EXT_WEBHOOKS_SECRETS={"PRD-1111-1111": "<super-jwt-secret>"}
 EXT_MSTEAMS_WEBHOOK_URL=https://whatever.webhook.office.com/webhookb2/<...>
-EXT_AWS_SES_CREDENTIALS=<access-key>:<secret-key>
-EXT_EMAIL_NOTIFICATIONS_SENDER=no-reply@domain.com
-EXT_EMAIL_NOTIFICATIONS_ENABLED=1
 EXT_FFC_SUB=FTKN-1111-1111
 EXT_FFC_OPERATIONS_API_BASE_URL=https://api.finops.s1.show/ops
 EXT_FFC_OPERATIONS_SECRET=supersecret
@@ -81,8 +75,8 @@ $ docker-compose run --service-ports app
 | `EXT_FFC_SUB`                     | FTKN-1111-1111                    | FTKN-1111-1111                        | FinOps for Cloud Operation API Token ID                                                   |
 | `EXT_FFC_OPERATIONS_API_BASE_URL` | https://api.finops.s1.show/ops    | https://api.finops.s1.show/ops        | FinOps for Cloud Operation API URL                                                        |
 | `EXT_FFC_OPERATIONS_SECRET`       | -                                 | eyJhbGciOiJSUzI1N...                  | FinOps for CLoud Operation API Token                                                      |
-    
-    
+| `MPT_NOTIFY_CATEGORIES`           | -                              | {"ORDERS": "NTC-0000-0006"}           | SoftwareONE Marketplace Notification Categories                                           |    
+
 
 ## Azure AppInsights
 | Environment Variable                    | Default                     | Example                                                                                                                                                                                             | Description                                                                                                   |

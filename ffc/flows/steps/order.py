@@ -22,7 +22,7 @@ from ffc.flows.order import (
     set_template,
 )
 from ffc.flows.steps.utils import reset_order_error, switch_order_to_failed
-from ffc.notifications import send_email_notification
+from ffc.notifications import send_mpt_notification
 from ffc.parameters import (
     PARAM_ADMIN_CONTACT,
     PARAM_CURRENCY,
@@ -85,7 +85,7 @@ class CompleteOrder(Step):
             parameters=context.order["parameters"],
         )
         context.order["agreement"] = agreement
-        send_email_notification(client, context.order)
+        send_mpt_notification(client, context)
         logger.info(f"{context}: order has been completed successfully")
         next_step(client, context)
 
@@ -156,7 +156,7 @@ class QueryIfInvalid(Step):
             logger.info(
                 f"{context}: ordering parameters are invalid, move to querying",
             )
-            send_email_notification(client, order)
+            send_mpt_notification(client, context)
             return
 
         next_step(client, context)
@@ -203,7 +203,7 @@ class StartOrderProcessing(Step):
         logger.info(f"{context}: processing template is ok, continue")
 
         if not get_due_date(context.order):
-            send_email_notification(client, context.order)
+            send_mpt_notification(client, context)
 
         next_step(client, context)
 

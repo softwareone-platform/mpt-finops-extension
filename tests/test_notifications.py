@@ -2,15 +2,18 @@ import logging
 
 import pymsteams
 import pytest
+from mpt_extension_sdk.mpt_http.mpt import NotifyCategories
 
+from ffc.flows.order import OrderContext
 from ffc.notifications import (
     Button,
     FactsSection,
     dateformat,
+    mpt_notify,
     notify_unhandled_exception_in_teams,
-    send_email,
     send_error,
     send_exception,
+    send_mpt_notification,
     send_notification,
     send_warning,
 )
@@ -135,25 +138,18 @@ def test_send_others(mocker, function, color, icon):
     )
 
 
-def test_send_email(mocker, settings):
-    settings.EXTENSION_CONFIG = {
-        "AWS_SES_CREDENTIALS": "access-key:secret-key",
-        "AWS_SES_REGION": "aws-region",
-        "EMAIL_NOTIFICATIONS_SENDER": "mpt@domain.com",
-    }
+def test_mpt_notify(mocker, mpt_client):
     mocked_template = mocker.MagicMock()
     mocked_template.render.return_value = "rendered-template"
     mocked_jinja_env = mocker.MagicMock()
     mocked_jinja_env.get_template.return_value = mocked_template
     mocker.patch("ffc.notifications.env", mocked_jinja_env)
+    mock_notify = mocker.patch("ffc.notifications.notify", autospec=True)
 
-    mocked_ses_client = mocker.MagicMock()
-    mocked_boto3 = mocker.patch(
-        "ffc.notifications.boto3.client",
-        return_value=mocked_ses_client,
-    )
-    send_email(
-        "customer@domain.com",
+    mpt_notify(
+        mpt_client,
+        "account_id",
+        "buyer_id",
         "email-subject",
         "template_name",
         {"test": "context"},
@@ -161,55 +157,45 @@ def test_send_email(mocker, settings):
 
     mocked_jinja_env.get_template.assert_called_once_with("template_name.html")
     mocked_template.render.assert_called_once_with({"test": "context"})
-    mocked_boto3.assert_called_once_with(
-        "ses",
-        aws_access_key_id="access-key",
-        aws_secret_access_key="secret-key",
-        region_name="aws-region",
-    )
-    mocked_ses_client.send_email.assert_called_once_with(
-        Source="mpt@domain.com",
-        Destination={
-            "ToAddresses": "customer@domain.com",
-        },
-        Message={
-            "Subject": {"Data": "email-subject", "Charset": "UTF-8"},
-            "Body": {
-                "Html": {"Data": "rendered-template", "Charset": "UTF-8"},
-            },
-        },
+    mock_notify.assert_called_once_with(
+        mpt_client,
+        NotifyCategories.ORDERS.value,
+        "account_id",
+        "buyer_id",
+        "email-subject",
+        "rendered-template",
     )
 
 
-def test_send_email_exception(mocker, settings, caplog):
-    settings.EXTENSION_CONFIG = {
-        "AWS_SES_CREDENTIALS": "access-key:secret-key",
-        "AWS_SES_REGION": "aws-region",
-        "EMAIL_NOTIFICATIONS_SENDER": "mpt@domain.com",
-    }
+def test_mpt_notify_exception(mocker, mpt_client, caplog):
     mocked_template = mocker.MagicMock()
     mocked_template.render.return_value = "rendered-template"
     mocked_jinja_env = mocker.MagicMock()
     mocked_jinja_env.get_template.return_value = mocked_template
     mocker.patch("ffc.notifications.env", mocked_jinja_env)
-
-    mocked_ses_client = mocker.MagicMock()
-    mocked_ses_client.send_email.side_effect = Exception("error")
     mocker.patch(
-        "ffc.notifications.boto3.client",
-        return_value=mocked_ses_client,
+        "ffc.notifications.notify",
+        autospec=True,
+        side_effect=Exception("error"),
     )
+
     with caplog.at_level(logging.ERROR):
-        send_email(
-            "customer@domain.com",
+        mpt_notify(
+            mpt_client,
+            "account_id",
+            "buyer_id",
             "email-subject",
             "template_name",
             {"test": "context"},
         )
 
     assert (
-        "Cannot send notification email with "
-        "subject 'email-subject' to: customer@domain.com"
+        "Cannot send MPT API notification:"
+        f" Category: '{NotifyCategories.ORDERS.value}',"
+        " Account ID: 'account_id',"
+        " Buyer ID: 'buyer_id',"
+        " Subject: 'email-subject',"
+        " Message: 'rendered-template'"
     ) in caplog.text
 
 
@@ -233,3 +219,30 @@ def test_notify_unhandled_exception_in_teams(mocker):
         "of the order **ORD-0000**:\n\n"
         "```exception-traceback```",
     )
+
+
+def test_send_mpt_notification(mocker, mpt_client, order_factory):
+    """Test that MPT notification is sent correctly expected subject for order in
+    querying status."""
+    mock_mpt_notify = mocker.patch("ffc.notifications.mpt_notify", spec=True)
+    mock_get_rendered_template = mocker.patch(
+        "ffc.notifications.get_rendered_template", return_value="rendered-template"
+    )
+    context = OrderContext.from_order(order_factory())
+
+    send_mpt_notification(mpt_client, context)
+
+    mock_mpt_notify.assert_called_once_with(
+        mpt_client,
+        "ACC-9121-8944",
+        "BUY-3731-7971",
+        "Order status update ORD-0792-5000-2253-4210 for A buyer",
+        "notification",
+        {
+            "activation_template": "<p>rendered-template</p>\n",
+            "api_base_url": "https://localhost",
+            "order": context.order,
+            "portal_base_url": "https://portal.s1.local",
+        },
+    )
+    mock_get_rendered_template.assert_called_once()
