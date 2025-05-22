@@ -74,7 +74,7 @@ def fulfill_order(client, order):
     Returns:
         None
     """
-    logger.info(f'Start processing {order["type"]} order {order["id"]}')
+    logger.info(f"Start processing {order['type']} order {order['id']}")
     context = OrderContext.from_order(order)
     try:
         if is_purchase_order(order):

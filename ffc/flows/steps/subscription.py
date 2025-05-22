@@ -33,7 +33,7 @@ class CreateSubscription(Step):
                     subscription,
                 )
                 logger.info(
-                    f'{context}: subscription {line["id"]} '
-                    f'({subscription["id"]}) created'
+                    f"{context}: subscription {line['id']} "
+                    f"({subscription['id']}) created"
                 )
         next_step(client, context)

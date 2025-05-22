@@ -167,8 +167,8 @@ APPLICATIONINSIGHTS_CONNECTION_STRING = os.getenv(
     "APPLICATIONINSIGHTS_CONNECTION_STRING", ""
 )
 
-MPT_API_BASE_URL = os.getenv("MPT_API_BASE_URL", "http://localhost:8000")
-MPT_API_TOKEN = os.getenv("MPT_API_TOKEN", "change-me!")
+MPT_API_BASE_URL = os.getenv("MPT_API_BASE_URL", "change-me!")
+MPT_API_TOKEN = os.getenv("MPT_API_TOKEN")
 # TODO: Should be synced with the initializer.py::initialize function
 MPT_PRODUCTS_IDS = ["PRD-1111-1111"]
 MPT_ORDERS_API_POLLING_INTERVAL_SECS = 30
@@ -177,4 +177,9 @@ MPT_PORTAL_BASE_URL = "https://portal.s1.local"
 EXTENSION_CONFIG = {
     "WEBHOOKS_SECRETS": {"PRD-1111-1111": "that's my awesome test secret"},
     "DUE_DATE_DAYS": "30",
+    "FFC_OPERATIONS_API_BASE_URL": "http://localhost:8000",
+    "FFC_SUB": "my_sub",
+    "FFC_OPERATIONS_SECRET": "my_secret",
+    "MPT_API_BASE_URL": "http://localhost:8000",
+    "MPT_API_TOKEN": "my_token",
 }
