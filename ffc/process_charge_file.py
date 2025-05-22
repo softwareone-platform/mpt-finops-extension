@@ -17,8 +17,6 @@ from ffc.utils import (
 logger = logging.getLogger(__name__)
 SUBSCRIPTION_SEARCH_VALUE_COLUMN_NAME = "Subscription Search Value"
 
-logger = logging.getLogger(__name__)
-
 
 class ChargeFileSplitProcessor:
     def __init__(
