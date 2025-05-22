@@ -17,6 +17,8 @@ from ffc.utils import (
 logger = logging.getLogger(__name__)
 SUBSCRIPTION_SEARCH_VALUE_COLUMN_NAME = "Subscription Search Value"
 
+logger = logging.getLogger(__name__)
+
 
 class ChargeFileSplitProcessor:
     def __init__(
@@ -73,6 +75,7 @@ class ChargeFileSplitProcessor:
                 await self.split_and_save_charge_file(headers=headers)
 
             else:
+
                 logger.error(
                     f"No file was downloaded for the charge file: {charge_file_id} ."
                 )

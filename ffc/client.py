@@ -316,9 +316,133 @@ class HttpxFFCAPIClient:
         await self.client.aclose()
 
 
+class HttpxFFCAPIClient:
+    """
+    HTTPX API Client
+    """
+
+    def __init__(self, base_url: str, sub, secret):
+        self.api_base_url = base_url
+        self._sub = sub
+        self._secret = secret
+        self._jwt = None
+        self.client = httpx.AsyncClient(base_url=self.api_base_url)
+
+    async def get_generated_charge_files(self) -> list[dict[str, Any]] | None:
+        """
+        This method fetches the charges files in the GENERATED Status.
+        This status means that the charges files have been generated but
+        not yet processed by the billing procedure.
+        Raises:
+        """
+        try:
+            headers = self._get_headers()
+            rql_filter = "eq(status,generated)"
+            endpoint = f"{self.api_base_url}/ops/v1/charges?{rql_filter}"
+            response = await self.client.get(headers=headers, url=endpoint)
+            response.raise_for_status()
+            data = response.json()
+            return data.get("items", [])
+        except httpx.HTTPError as error:
+            logger.exception(f"Request to get charge files failed: {error}")
+            return None
+
+    async def download_charges_file(
+        self, charge_file_id: str, download_folder: str
+    ) -> str | None:
+        """
+        This method downloads asynchronously downloads a charge file from the FFC_OPERATIONS API
+        and stores it as a zip file in a temporary directory.
+        Args:
+            charge_file_id:  The charge file id.
+            download_folder: The temporary directory to store the downloaded zip file.
+        """
+        initial_url = f"{self.api_base_url}/ops/v1/charges/{charge_file_id}/download"
+        headers = self._get_headers()
+        try:
+            response = await self.client.get(initial_url, headers=headers)
+            if response.status_code != 307:
+                logger.error(
+                    f"Unexpected status code {response.status_code} for {charge_file_id}"
+                )
+                return None
+            redirect_url = response.headers[
+                "Location"
+            ]  # extract the download url location from the headers
+            url_response = await self.client.get(
+                redirect_url
+            )  # the URL has a short-lived sas token
+            if url_response.status_code != 200:
+                logger.error(
+                    f"Failed to download  {charge_file_id}, status: {url_response.status_code}"
+                )
+                return None
+            file_path = os.path.join(download_folder, f"{charge_file_id}.zip")
+            return await self._stream_response_to_file(url_response, file_path)
+        except Exception as error:
+            logger.exception(f"Error downloading {charge_file_id}: {error}")
+            return None
+
+    def _get_headers(self):
+        """
+        This method builds the required headers
+        for the authenticated request.
+        """
+        return {
+            "Authorization": f"Bearer {self._get_auth_token()}",
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "X-Request-Id": str(uuid4()),
+        }
+
+    def _get_auth_token(self):
+        """
+        This method builds the required JWT
+        """
+        if not self._jwt or self._is_token_expired():
+            now = datetime.now(tz=timezone.utc)
+            self._jwt = jwt.encode(
+                {
+                    "sub": self._sub,
+                    "exp": now + timedelta(minutes=5),
+                    "nbf": now,
+                    "iat": now,
+                },
+                self._secret,
+                algorithm="HS256",
+            )
+
+        return self._jwt
+
+    def _is_token_expired(self):
+        try:
+            jwt.decode(self._jwt, self._secret, algorithms=["HS256"])
+            return False
+        except jwt.ExpiredSignatureError:
+            return True
+
+    @staticmethod
+    async def _stream_response_to_file(
+        response: httpx.Response, file_path, chunk_size=1024
+    ):
+        """
+        This function reads the response in chunks and writes it to a file asynchronously.
+        """
+        async with aiofiles.open(file_path, "wb") as file:
+            async for chunk in response.aiter_bytes(chunk_size=chunk_size):
+                await file.write(chunk)
+        logger.info(f"Charge File Downloaded and saved: {file_path}")
+        return file_path
+
+    async def close(self):
+        """Close the client connection."""
+        await self.client.aclose()
+
+
 _FFC_CLIENT = None
 _HTTPX_FFC_API_CLIENT = None
 _HTTPX_MTP_API_CLIENT = None
+
 
 def get_httpx_ffc_api_client():
     """
