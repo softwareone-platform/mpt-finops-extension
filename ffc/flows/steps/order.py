@@ -1,5 +1,7 @@
 import logging
+from datetime import UTC, datetime, timedelta
 
+from django.conf import settings
 from mpt_extension_sdk.flows.pipeline import Step
 from mpt_extension_sdk.mpt_http.mpt import (
     complete_order,
@@ -25,13 +27,17 @@ from ffc.flows.steps.utils import reset_order_error, switch_order_to_failed
 from ffc.notifications import send_mpt_notification
 from ffc.parameters import (
     PARAM_ADMIN_CONTACT,
+    PARAM_BILLED_PERCENTAGE,
     PARAM_CURRENCY,
     PARAM_IS_NEW_USER,
     PARAM_ORGANIZATION_NAME,
+    PARAM_TRIAL_END_DATE,
+    PARAM_TRIAL_START_DATE,
     get_due_date,
     get_fulfillment_parameter,
     get_ordering_parameter,
     reset_ordering_parameters_error,
+    set_fulfillment_parameter,
     set_ordering_parameter_error,
 )
 
@@ -160,6 +166,54 @@ class QueryIfInvalid(Step):
             return
 
         next_step(client, context)
+
+
+class SetupFulfillmentParameters(Step):
+    """
+    Set fulfillment parameters with default values if they are not provided
+    """
+
+    def __call__(self, client, context, next_step):
+        order = context.order
+        updates = self._get_parameter_updates(order)
+
+        if updates:
+            for param_name, param_value in updates.items():
+                order = set_fulfillment_parameter(
+                    order=order,
+                    parameter=param_name,
+                    value=param_value,
+                )
+            context.order = update_order(
+                client, context.order["id"], parameters=order["parameters"]
+            )
+            logger.info(
+                f"{context}: Updating fulfillment parameters",
+            )
+
+        next_step(client, context)
+
+    @staticmethod
+    def _get_parameter_updates(order):
+        updates = {}
+
+        if not get_fulfillment_parameter(order, PARAM_BILLED_PERCENTAGE).get("value"):
+            updates[PARAM_BILLED_PERCENTAGE] = int(
+                settings.EXTENSION_CONFIG.get("DEFAULT_BILLED_PERCENTAGE")
+            )
+
+        trial_start_date = get_fulfillment_parameter(order, PARAM_TRIAL_START_DATE).get("value")
+        if not trial_start_date:
+            trial_start_date = datetime.now(UTC).date().strftime("%Y-%m-%d")
+            updates[PARAM_TRIAL_START_DATE] = trial_start_date
+
+        if not get_fulfillment_parameter(order, PARAM_TRIAL_END_DATE).get("value"):
+            trail_end_date = datetime.strptime(trial_start_date, "%Y-%m-%d").date() + timedelta(
+                days=int(settings.EXTENSION_CONFIG.get("DEFAULT_TRIAL_PERIOD_DURATION_DAYS"))
+            )
+            updates[PARAM_TRIAL_END_DATE] = trail_end_date.strftime("%Y-%m-%d")
+
+        return updates
 
 
 class ResetOrderErrors(Step):

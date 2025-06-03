@@ -26,6 +26,7 @@ from ffc.flows.steps import (
     ResetOrderErrors,
     SetupAgreementExternalId,
     SetupDueDate,
+    SetupFulfillmentParameters,
     StartOrderProcessing,
 )
 from ffc.notifications import notify_unhandled_exception_in_teams
@@ -39,6 +40,7 @@ purchase = Pipeline(
     CheckDueDate(),
     CheckOrderParameters(),
     QueryIfInvalid(),
+    SetupFulfillmentParameters(),
     StartOrderProcessing(PURCHASE_TEMPLATE_NAME),
     CreateEmployee(),
     CreateOrganization(),
