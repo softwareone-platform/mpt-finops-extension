@@ -344,9 +344,9 @@ def test_setup_fulfillment_parameters_empty_values(
     processing_purchase_order,
 ):
     param_defaults = {
-        'trialStartDate': '2025-01-01',
-        'trialEndDate': '2025-01-31',
-        'billedPercentage': 4,
+        "trialStartDate": "2025-01-01",
+        "trialEndDate": "2025-01-31",
+        "billedPercentage": "4",
     }
     for param in processing_purchase_order["parameters"]["fulfillment"]:
         if param["externalId"] in param_defaults:

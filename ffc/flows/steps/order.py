@@ -133,9 +133,7 @@ class CheckOrderParameters(Step):
         ]:
             parameter = get_ordering_parameter(order, param_name)
             if not parameter.get("value"):
-                order = set_ordering_parameter_error(
-                    order, param_name, errors[param_name]
-                )
+                order = set_ordering_parameter_error(order, param_name, errors[param_name])
                 context.validation_succeeded = False
 
         next_step(client, context)
@@ -198,8 +196,8 @@ class SetupFulfillmentParameters(Step):
         updates = {}
 
         if not get_fulfillment_parameter(order, PARAM_BILLED_PERCENTAGE).get("value"):
-            updates[PARAM_BILLED_PERCENTAGE] = int(
-                settings.EXTENSION_CONFIG.get("DEFAULT_BILLED_PERCENTAGE")
+            updates[PARAM_BILLED_PERCENTAGE] = settings.EXTENSION_CONFIG.get(
+                "DEFAULT_BILLED_PERCENTAGE", "4"
             )
 
         trial_start_date = get_fulfillment_parameter(order, PARAM_TRIAL_START_DATE).get("value")
@@ -209,7 +207,7 @@ class SetupFulfillmentParameters(Step):
 
         if not get_fulfillment_parameter(order, PARAM_TRIAL_END_DATE).get("value"):
             trail_end_date = datetime.strptime(trial_start_date, "%Y-%m-%d").date() + timedelta(
-                days=int(settings.EXTENSION_CONFIG.get("DEFAULT_TRIAL_PERIOD_DURATION_DAYS"))
+                days=int(settings.EXTENSION_CONFIG.get("DEFAULT_TRIAL_PERIOD_DURATION_DAYS", "30"))
             )
             updates[PARAM_TRIAL_END_DATE] = trail_end_date.strftime("%Y-%m-%d")
 
@@ -247,12 +245,9 @@ class StartOrderProcessing(Step):
         current_template_id = context.order.get("template", {}).get("id")
         if template["id"] != current_template_id:
             context.order = set_template(context.order, template)
-            update_order(
-                client, context.order["id"], template=context.order["template"]
-            )
+            update_order(client, context.order["id"], template=context.order["template"])
             logger.info(
-                f"{context}: processing template set to {self.template_name} "
-                f"({template['id']})"
+                f"{context}: processing template set to {self.template_name} " f"({template['id']})"
             )
         logger.info(f"{context}: processing template is ok, continue")
 
