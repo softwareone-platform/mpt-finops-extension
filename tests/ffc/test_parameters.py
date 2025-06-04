@@ -31,10 +31,7 @@ def test_get_parameter(processing_purchase_order):
 
 
 def test_get_parameter_does_not_exist(processing_purchase_order):
-    assert (
-        get_parameter("fulfillment", processing_purchase_order, "unknownParameter")
-        == {}
-    )
+    assert get_parameter("fulfillment", processing_purchase_order, "unknownParameter") == {}
 
 
 def test_set_ordering_parameter_error(processing_purchase_order):
