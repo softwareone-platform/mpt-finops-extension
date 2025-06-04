@@ -14,6 +14,9 @@ PARAM_ORGANIZATION_NAME = "organizationName"
 PARAM_CURRENCY = "currency"
 PARAM_ADMIN_CONTACT = "adminContact"
 PARAM_IS_NEW_USER = "isNewUser"
+PARAM_TRIAL_START_DATE = "trialStartDate"
+PARAM_TRIAL_END_DATE = "trialEndDate"
+PARAM_BILLED_PERCENTAGE = "billedPercentage"
 
 
 def get_parameter(parameter_phase, source, param_external_id):
@@ -112,6 +115,22 @@ def set_is_new_user(order, is_new):
         # without the parameter is_new_user
         # parameter was introduced after v4 release
         param["value"] = param_value
+
+    return updated_order
+
+
+def set_fulfillment_parameter(order, parameter, value):
+    """
+    Set the provided fulfillment parameter with given value
+    Args:
+        order (dict): Order to be updated
+        parameter (str): name of the parameter
+        value (Any): value of the parameter
+    """
+    updated_order = copy.deepcopy(order)
+
+    param = get_fulfillment_parameter(updated_order, parameter)
+    param["value"] = value
 
     return updated_order
 

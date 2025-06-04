@@ -76,6 +76,30 @@ def fulfillment_parameters_factory():
                 "type": "Checkbox",
                 "phase": "Fulfillment",
             },
+            {
+                "id": "PAR-7208-0459-0009",
+                "externalId": "trialStartDate",
+                "name": "Trial Start Date",
+                "type": "Date",
+                "phase": "Fulfillment",
+                "value": "2025-01-01",
+            },
+            {
+                "id": "PAR-7208-0459-0010",
+                "externalId": "trialEndDate",
+                "name": "Trial Start Date",
+                "type": "Date",
+                "phase": "Fulfillment",
+                "value": "2025-01-31",
+            },
+            {
+                "id": "PAR-7208-0459-0011",
+                "externalId": "billedPercentage",
+                "name": "Billed Percentage",
+                "type": "SingleLineText",
+                "phase": "Fulfillment",
+                "value": "4",
+            },
         ]
 
     return _fulfillment_parameters

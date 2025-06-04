@@ -1,3 +1,5 @@
+from freezegun import freeze_time
+
 from ffc.flows.error import ERR_ORDER_TYPE_NOT_SUPPORTED
 from ffc.flows.order import PURCHASE_EXISTING_TEMPLATE_NAME, OrderContext
 from ffc.flows.steps.order import (
@@ -8,6 +10,7 @@ from ffc.flows.steps.order import (
     QueryIfInvalid,
     ResetOrderErrors,
     SetupAgreementExternalId,
+    SetupFulfillmentParameters,
     StartOrderProcessing,
 )
 from ffc.parameters import PARAM_PHASE_ORDERING, set_is_new_user
@@ -314,4 +317,54 @@ def test_fail_order(
         mpt_client,
         processing_purchase_order,
         ERR_ORDER_TYPE_NOT_SUPPORTED.to_dict(order_type=processing_purchase_order["type"]),
+    )
+
+
+def test_setup_fulfillment_parameters(
+    mocker,
+    mocked_next_step,
+    mpt_client,
+    processing_purchase_order,
+):
+    mocked_update_order = mocker.patch("ffc.flows.steps.order.update_order")
+    ctx = OrderContext(order=processing_purchase_order)
+    step = SetupFulfillmentParameters()
+
+    step(mpt_client, ctx, mocked_next_step)
+
+    mocked_next_step.assert_called_once()
+    mocked_update_order.assert_not_called()
+
+
+@freeze_time("2025-01-01")
+def test_setup_fulfillment_parameters_empty_values(
+    mocker,
+    mocked_next_step,
+    mpt_client,
+    processing_purchase_order,
+):
+    param_defaults = {
+        'trialStartDate': '2025-01-01',
+        'trialEndDate': '2025-01-31',
+        'billedPercentage': 4,
+    }
+    for param in processing_purchase_order["parameters"]["fulfillment"]:
+        if param["externalId"] in param_defaults:
+            param["value"] = None
+
+    mocked_update_order = mocker.patch("ffc.flows.steps.order.update_order")
+    ctx = OrderContext(order=processing_purchase_order)
+    step = SetupFulfillmentParameters()
+
+    step(mpt_client, ctx, mocked_next_step)
+
+    for param in processing_purchase_order["parameters"]["fulfillment"]:
+        if param["externalId"] in param_defaults:
+            param["value"] = param_defaults[param["externalId"]]
+
+    mocked_next_step.assert_called_once()
+    mocked_update_order.assert_called_once_with(
+        mpt_client,
+        processing_purchase_order["id"],
+        parameters=processing_purchase_order["parameters"],
     )
