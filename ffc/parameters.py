@@ -151,3 +151,22 @@ def reset_ordering_parameters_error(order):
         param["error"] = None
 
     return updated_order
+
+
+
+def get_trial_start_date(source):
+    val = get_fulfillment_parameter(source, PARAM_TRIAL_START_DATE).get("value")
+    if val:
+        return val
+
+
+def get_trial_end_date():
+    pass
+
+
+def set_trial_start_date():
+    pass
+
+
+def set_trial_end_date():
+    pass

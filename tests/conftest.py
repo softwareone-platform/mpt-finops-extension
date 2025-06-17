@@ -6,6 +6,8 @@ import pytest
 import responses
 from swo.mpt.extensions.runtime.djapp.conf import get_for_product
 
+from ffc.process_billing import BillingProcess
+
 
 @pytest.fixture()
 def requests_mocker():
@@ -729,4 +731,480 @@ def ffc_employee():
         "last_login": "2025-04-04T09:11:36.291Z",
         "roles_count": 0,
         "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+    }
+
+
+@pytest.fixture()
+def billing_process_instance():
+    return BillingProcess(
+        month=6,
+        year=2025,
+        authorization_id="AUTH-123-1234",
+    )
+
+
+@pytest.fixture()
+def return_create_journal():
+    return {
+        "$meta": {
+            "omitted": ["processing"],
+        },
+        "id": "BJO-9000-4019",
+        "name": "June 2025 Charges",
+        "externalIds": {
+            "vendor": "202506",
+        },
+        "status": "Draft",
+        "vendor": {
+            "id": "ACC-3102-8586",
+            "type": "Vendor",
+            "status": "Active",
+            "name": "FinOps for Cloud",
+            "icon": "/v1/accounts/accounts/ACC-3102-8586/icon",
+        },
+        "owner": {
+            "id": "SEL-7032-1456",
+            "externalId": "US",
+            "name": "SoftwareONE Inc.",
+            "icon": "/v1/accounts/sellers/SEL-7032-1456/icon",
+        },
+        "product": {
+            "id": "PRD-2426-7318",
+            "name": "FinOps for Cloud",
+            "externalIds": {
+                "operations": "adsasadsa",
+            },
+            "icon": "/v1/catalog/products/PRD-2426-7318/icon",
+            "status": "Published",
+        },
+        "authorization": {
+            "id": "AUT-5305-9928",
+            "name": "asdasdsa",
+            "currency": "USD",
+        },
+        "dueDate": "2025-07-01T00:00:00.000Z",
+        "price": {
+            "currency": "USD",
+            "totalPP": 0.00000,
+        },
+        "upload": {
+            "total": 0,
+            "split": 0,
+            "ready": 0,
+            "error": 0,
+        },
+        "audit": {
+            "created": {
+                "at": "2025-06-10T17:04:53.802Z",
+                "by": {
+                    "id": "TKN-5645-5497",
+                    "name": "Antonio Di Mariano",
+                    "icon": "",
+                },
+            },
+            "updated": {},
+        },
+    }
+
+
+@pytest.fixture()
+def existing_journal_file():
+    return [
+        {
+            "id": "BJO-9000-4019",
+            "name": "June 2025 Charges",
+            "externalIds": {
+                "vendor": "202506",
+            },
+            "status": "Draft",
+            "vendor": {
+                "id": "ACC-3102-8586",
+                "type": "Vendor",
+                "status": "Active",
+                "name": "FinOps for Cloud",
+                "icon": "/v1/accounts/accounts/ACC-3102-8586/icon",
+            },
+            "owner": {
+                "id": "SEL-7032-1456",
+                "externalId": "US",
+                "name": "SoftwareONE Inc.",
+                "icon": "/v1/accounts/sellers/SEL-7032-1456/icon",
+            },
+            "product": {
+                "id": "PRD-2426-7318",
+                "name": "FinOps for Cloud",
+                "externalIds": {
+                    "operations": "adsasadsa",
+                },
+                "icon": "/v1/catalog/products/PRD-2426-7318/icon",
+                "status": "Published",
+            },
+            "authorization": {
+                "id": "AUT-5305-9928",
+                "name": "asdasdsa",
+                "currency": "USD",
+            },
+            "dueDate": "2025-07-01T00:00:00.000Z",
+            "price": {
+                "currency": "USD",
+                "totalPP": 0.00000,
+            },
+            "upload": {
+                "total": 0,
+                "split": 0,
+                "ready": 0,
+                "error": 0,
+            },
+        },
+    ]
+
+
+@pytest.fixture()
+def return_journal_attachment():
+    return [
+        {
+            "id": "JOA-5985-1983",
+            "name": "charge_file.json",
+            "journal": {
+                "id": "BJO-9000-4019",
+                "name": "June 2025 Charges",
+                "dueDate": "2025-07-01T00:00:00.000Z",
+            },
+            "vendor": {
+                "id": "ACC-3102-8586",
+                "type": "Vendor",
+                "status": "Active",
+                "name": "FinOps for Cloud",
+                "icon": "/v1/accounts/accounts/ACC-3102-8586/icon",
+            },
+            "type": "Attachment",
+            "filename": "charge_file.json",
+            "size": 2981,
+            "contentType": "application/json",
+            "description": "Conversion Rate",
+            "isDeleted": False,
+        },
+    ]
+
+
+@pytest.fixture()
+def get_organization():
+    return {
+        "name": "SoftwareOne (Test Environment)",
+        "currency": "USD",
+        "billing_currency": "EUR",
+        "operations_external_id": "ACC-1234-5678",
+        "events": {
+            "created": {
+                "at": "2025-04-03T15:18:02.408803Z",
+                "by": {
+                    "id": "FUSR-6956-9254",
+                    "type": "user",
+                    "name": "FrancescoFaraone",
+                },
+            },
+            "updated": {
+                "at": "2025-04-22T13:32:00.599322Z",
+                "by": {
+                    "id": "FUSR-6956-9254",
+                    "type": "user",
+                    "name": "FrancescoFaraone",
+                },
+            },
+        },
+        "id": "FORG-4801-6958-2949",
+        "linked_organization_id": "3d0fe384-b1cf-4929-ad5e-1aa544f93dd5",
+        "status": "active",
+    }
+
+
+@pytest.fixture()
+def get_agreement_details():
+    return [
+        {
+            "id": "AGR-4985-4034-6503",
+            "status": "Active",
+            "listing": {
+                "id": "LST-9168-7963",
+            },
+            "authorization": {
+                "id": "AUT-3727-1184",
+                "name": "SoftwareOne FinOps for Cloud (USD)",
+                "currency": "USD",
+            },
+            "vendor": {
+                "id": "ACC-3805-2089",
+                "type": "Vendor",
+                "status": "Active",
+                "name": "SoftwareOne Vendor",
+                "icon": "/v1/accounts/accounts/ACC-3805-2089/icon",
+            },
+            "client": {
+                "id": "ACC-5809-3083",
+                "type": "Client",
+                "status": "Active",
+                "name": "Area302 (Client)",
+                "icon": "/v1/accounts/accounts/ACC-5809-3083/icon",
+            },
+            "price": {
+                "PPxY": 0.00000,
+                "PPxM": 0.00000,
+                "currency": "USD",
+            },
+            "template": {
+                "id": "TPL-7208-0459-0003",
+                "name": "Default",
+            },
+            "name": "SoftwareOne FinOps for Cloud for Area302 (Client)",
+            "parameters": {
+                "ordering": [
+                    {
+                        "id": "PAR-7208-0459-0004",
+                        "externalId": "organizationName",
+                        "name": "Organization Name",
+                        "type": "SingleLineText",
+                        "phase": "Order",
+                        "displayValue": "PL Organization",
+                        "value": "PL Organization",
+                    },
+                    {
+                        "id": "PAR-7208-0459-0005",
+                        "externalId": "adminContact",
+                        "name": "Administrator",
+                        "type": "Contact",
+                        "phase": "Order",
+                        "displayValue": "PL NNN pavel.lonkin@softwareone.com",
+                        "value": {
+                            "firstName": "PL",
+                            "lastName": "NNN",
+                            "email": "pavel.lonkin@softwareone.com",
+                            "phone": None,
+                        },
+                    },
+                    {
+                        "id": "PAR-7208-0459-0006",
+                        "externalId": "currency",
+                        "name": "Currency",
+                        "type": "DropDown",
+                        "phase": "Order",
+                        "displayValue": "EUR",
+                        "value": "EUR",
+                    },
+                ],
+                "fulfillment": [
+                    {
+                        "id": "PAR-7208-0459-0007",
+                        "externalId": "dueDate",
+                        "name": "Due Date",
+                        "type": "Date",
+                        "phase": "Fulfillment",
+                    },
+                ],
+            },
+            "licensee": {
+                "id": "LCE-3603-9310-4566",
+                "name": "Adobe Licensee 302",
+            },
+            "buyer": {
+                "id": "BUY-0280-5606",
+                "name": "Rolls-Royce Corporation",
+                "icon": "/v1/accounts/buyers/BUY-0280-5606/icon",
+            },
+            "seller": {
+                "id": "SEL-7282-9889",
+                "externalId": "78ADB9DA-BC69-4CBF-BAA0-CDBC28619EF7",
+                "name": "SoftwareOne, Inc.",
+                "icon": "/v1/accounts/sellers/SEL-7282-9889/icon",
+            },
+            "product": {
+                "id": "PRD-7208-0459",
+                "name": "SoftwareOne FinOps for Cloud",
+                "externalIds": {},
+                "icon": "/v1/catalog/products/PRD-7208-0459/icon",
+                "status": "Published",
+            },
+            "externalIds": {
+                "client": "",
+                "vendor": "FORG-6649-3383-1832",
+            },
+        },
+    ]
+
+
+@pytest.fixture()
+def get_exchange_rate():
+    return {
+        "result": "success",
+        "documentation": "https://www.exchangerate-api.com/docs",
+        "terms_of_use": "https://www.exchangerate-api.com/terms",
+        "time_last_update_unix": 1749772801,
+        "time_last_update_utc": "Fri, 13 Jun 2025 00:00:01 +0000",
+        "time_next_update_unix": 1749859201,
+        "time_next_update_utc": "Sat, 14 Jun 2025 00:00:01 +0000",
+        "base_code": "USD",
+        "conversion_rates": {
+            "USD": 1,
+            "AED": 3.6725,
+            "AFN": 69.5472,
+            "ALL": 85.1093,
+            "AMD": 383.3873,
+            "ANG": 1.7900,
+            "AOA": 918.3743,
+            "ARS": 1185.5000,
+            "AUD": 1.5327,
+            "AWG": 1.7900,
+            "AZN": 1.6992,
+            "BAM": 1.6892,
+            "BBD": 2.0000,
+            "BDT": 122.1719,
+            "BGN": 1.6890,
+            "BHD": 0.3760,
+            "BIF": 2971.7492,
+            "BMD": 1.0000,
+            "BND": 1.2792,
+            "BOB": 6.9152,
+            "BRL": 5.5370,
+            "BSD": 1.0000,
+            "BTN": 85.5923,
+            "BWP": 13.3716,
+            "BYN": 3.2669,
+            "BZD": 2.0000,
+            "CAD": 1.3609,
+            "CDF": 2886.4367,
+            "CHF": 0.8117,
+            "CLP": 933.6466,
+            "CNY": 7.1775,
+            "COP": 4186.1683,
+            "CRC": 506.5810,
+            "CUP": 24.0000,
+            "CVE": 95.2338,
+            "CZK": 21.3879,
+            "DJF": 177.7210,
+            "DKK": 6.4402,
+            "DOP": 59.0220,
+            "DZD": 130.8973,
+            "EGP": 49.7557,
+            "ERN": 15.0000,
+            "ETB": 134.8766,
+            "EUR": 0.8636,
+            "FJD": 2.2443,
+            "FKP": 0.7353,
+            "FOK": 6.4410,
+            "GBP": 0.7353,
+            "GEL": 2.7292,
+            "GGP": 0.7353,
+            "GHS": 10.8065,
+            "GIP": 0.7353,
+            "GMD": 72.7261,
+            "GNF": 8687.5475,
+            "GTQ": 7.6750,
+            "GYD": 209.2835,
+            "HKD": 7.8497,
+            "HNL": 26.0450,
+            "HRK": 6.5074,
+            "HTG": 130.9916,
+            "HUF": 346.2904,
+            "IDR": 16225.9113,
+            "ILS": 3.5607,
+            "IMP": 0.7353,
+            "INR": 85.5933,
+            "IQD": 1307.6716,
+            "IRR": 41954.7543,
+            "ISK": 124.3409,
+            "JEP": 0.7353,
+            "JMD": 159.2592,
+            "JOD": 0.7090,
+            "JPY": 143.5195,
+            "KES": 129.0672,
+            "KGS": 87.3928,
+            "KHR": 4017.1102,
+            "KID": 1.5329,
+            "KMF": 424.9034,
+            "KRW": 1354.9252,
+            "KWD": 0.3058,
+            "KYD": 0.8333,
+            "KZT": 511.6331,
+            "LAK": 21653.3424,
+            "LBP": 89500.0000,
+            "LKR": 298.6639,
+            "LRD": 199.5512,
+            "LSL": 17.7775,
+            "LYD": 5.4592,
+            "MAD": 9.0986,
+            "MDL": 17.2013,
+            "MGA": 4499.8917,
+            "MKD": 53.8655,
+            "MMK": 2095.7236,
+            "MNT": 3569.2457,
+            "MOP": 8.0852,
+            "MRU": 39.6769,
+            "MUR": 45.4594,
+            "MVR": 15.4172,
+            "MWK": 1738.8487,
+            "MXN": 18.9026,
+            "MYR": 4.2226,
+            "MZN": 63.8810,
+            "NAD": 17.7775,
+            "NGN": 1536.0716,
+            "NIO": 36.7269,
+            "NOK": 9.9437,
+            "NPR": 136.9476,
+            "NZD": 1.6495,
+            "OMR": 0.3845,
+            "PAB": 1.0000,
+            "PEN": 3.6211,
+            "PGK": 4.1514,
+            "PHP": 55.7289,
+            "PKR": 282.2843,
+            "PLN": 3.6835,
+            "PYG": 8001.9463,
+            "QAR": 3.6400,
+            "RON": 4.3450,
+            "RSD": 101.2894,
+            "RUB": 79.8143,
+            "RWF": 1436.0247,
+            "SAR": 3.7500,
+            "SBD": 8.5594,
+            "SCR": 14.8355,
+            "SDG": 510.8585,
+            "SEK": 9.4431,
+            "SGD": 1.2792,
+            "SHP": 0.7353,
+            "SLE": 22.3674,
+            "SLL": 22367.3971,
+            "SOS": 570.7579,
+            "SRD": 37.3233,
+            "SSP": 4634.0855,
+            "STN": 21.1602,
+            "SYP": 12892.7896,
+            "SZL": 17.7775,
+            "THB": 32.4006,
+            "TJS": 10.0570,
+            "TMT": 3.4978,
+            "TND": 2.9285,
+            "TOP": 2.3506,
+            "TRY": 39.3856,
+            "TTD": 6.7715,
+            "TVD": 1.5329,
+            "TWD": 29.3672,
+            "TZS": 2582.2337,
+            "UAH": 41.5300,
+            "UGX": 3594.8408,
+            "UYU": 41.2386,
+            "UZS": 12703.3397,
+            "VES": 101.0822,
+            "VND": 26033.7896,
+            "VUV": 119.0876,
+            "WST": 2.7383,
+            "XAF": 566.5378,
+            "XCD": 2.7000,
+            "XCG": 1.7900,
+            "XDR": 0.7278,
+            "XOF": 566.5378,
+            "XPF": 103.0648,
+            "YER": 243.0015,
+            "ZAR": 17.7777,
+            "ZMW": 24.8208,
+            "ZWL": 6.9749,
+        },
     }
