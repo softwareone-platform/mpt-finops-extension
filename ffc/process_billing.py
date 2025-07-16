@@ -120,17 +120,17 @@ class AuthorizationProcessor:
         if not self.dry_run:
             return await func(*args, **kwargs)
 
-    async def build_filepath(self, auth_id):
-        filepath = f"charges_{auth_id}_{self.year}_{self.month:02d}.jsonl"
+    async def build_filepath(self, authorization_id):
+        filepath = f"charges_{authorization_id}_{self.year}_{self.month:02d}.jsonl"
         filepath = f"{tempfile.gettempdir()}/{filepath}" if not self.dry_run else filepath
         return filepath
 
-    async def evaluate_journal_status(self, auth_id, journal_external_id):
+    async def evaluate_journal_status(self, authorization_id, journal_external_id):
         """
         Evaluates the status of a journal.
 
         Parameters:
-            auth_id (str): Authorization identifier.
+            authorization_id (str): Authorization identifier.
             journal_external_id (str): External ID of the journal.
 
         Returns:
@@ -141,7 +141,7 @@ class AuthorizationProcessor:
             JournalStatusError: If the journal exists but is not
             in 'Draft' or 'Validated' status.
         """
-        journal = await self.mpt_client.get_journal(auth_id, journal_external_id)
+        journal = await self.mpt_client.get_journal(authorization_id, journal_external_id)
         if not journal:
             self.logger.error(f"No journal found for external ID: {journal_external_id}")
             return None
@@ -156,14 +156,14 @@ class AuthorizationProcessor:
             raise JournalStatusError
         return journal
 
-    async def get_journal_object(self, auth_id: str, journal_external_id: str):
+    async def get_journal_object(self, authorization_id: str, journal_external_id: str):
         """ """
         try:
-            journal_status = await self.evaluate_journal_status(auth_id, journal_external_id)
+            journal_status = await self.evaluate_journal_status(authorization_id, journal_external_id)
             if journal_status is None:
                 return None
             journal = await self.mpt_client.create_journal(
-                auth_id,
+                authorization_id,
                 journal_external_id,
                 f"{self.billing_start_date.strftime('%b %Y')} charges",
                 self.billing_start_date + relativedelta(months=1),
@@ -179,35 +179,35 @@ class AuthorizationProcessor:
 
     async def process(self):
         """ """
-        auth_id = self.authorization["id"]
+        authorization_id = self.authorization["id"]
         result = AuthorizationProcessResult(authorization_id=self.authorization.get('id'))
         async with self.acquire_semaphore():
             try:
                 # double check with production
                 if not await self.mpt_client.count_active_agreements(
-                    auth_id,
+                    authorization_id,
                     self.billing_start_date,
                     self.billing_end_date,
                 ):
                     self.logger.info(f"No active agreement in the period {self.month}/{self.year}")
-                    result.errors.append(f"No active agreement for authorization {auth_id}")
+                    result.errors.append(f"No active agreement for authorization {authorization_id}")
                     return result
 
                 journal_external_id = f"{self.year:04d}{self.month:02d}"
-                filepath = await self.maybe_call(self.build_filepath, auth_id=auth_id)
+                filepath = await self.maybe_call(self.build_filepath, authoization_id=authorization_id)
                 journal = await self.maybe_call(
                     self.get_journal_object,
-                    auth_id=auth_id,
+                    authorization_id=authorization_id,
                     journal_external_id=journal_external_id,
                 )
                 self.logger.info(
                     "generating charges file {filepath} "
                     f"currency {self.authorization['currency']}"
                 )
-                await self.write_charges_file(auth_id, journal)
+                await self.write_charges_file(authorization_id, journal)
                 await self.maybe_call(
                     self.complete_journal_process(
-                        auth_id,
+                        authorization_id,
                         filepath,
                         journal,
                         journal_external_id,
@@ -225,7 +225,7 @@ class AuthorizationProcessor:
             except Exception as error:
                 self.logger.error(f"An error occurred: {error}", exc_info=error)
 
-    async def write_charges_file(self, auth_id, filepath):
+    async def write_charges_file(self, authorization_id, filepath):
         async with aiofiles.open(filepath, "w") as charges_file:
             async for organization in self.ffc_client.fetch_organizations(
                 self.authorization["currency"],
@@ -252,7 +252,7 @@ class AuthorizationProcessor:
                     self.invalid_organizations.append((organization, agreements))
                     continue
 
-                if agreements[0]["authorization"]["id"] != auth_id:
+                if agreements[0]["authorization"]["id"] != authorization_id:
                     self.logger.info(f"Skipping organization  {organization['id']} because "
                         "it belongs to an agreement with different authorization: "
                         f"{agreements[0]['authorization']['id']}")
@@ -260,7 +260,7 @@ class AuthorizationProcessor:
                     continue
 
                 await self.dump_organization_charges(
-                    auth_id,
+                    authorization_id,
                     charges_file,
                     organization,
                     agreement=agreements[0] if len(agreements) == 1 else None,
@@ -269,7 +269,7 @@ class AuthorizationProcessor:
             if await charges_file.tell() == 0:
                 return
 
-    async def complete_journal_process(self, auth_id, filepath, journal, journal_external_id):
+    async def complete_journal_process(self, authorization_id, filepath, journal, journal_external_id):
         """
         This method uploads and submits the given journal, attaching also the exchange rates
         files.
@@ -279,7 +279,7 @@ class AuthorizationProcessor:
         """
         if not journal:
             journal = await self.mpt_client.create_journal(
-                auth_id,
+                authorization_id,
                 journal_external_id,
                 f"{self.billing_start_date.strftime('%b %Y')} charges",
                 self.billing_start_date + relativedelta(months=1),
