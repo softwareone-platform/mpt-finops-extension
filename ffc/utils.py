@@ -1,31 +1,30 @@
-from datetime import datetime
-from uuid import uuid4
-
-from django.conf import settings
+from decimal import Decimal
 
 
 def find_first(func, iterable, default=None):
     return next(filter(func, iterable), default)
 
 
-def get_ff_parameter(agreement, parameter_name, is_date=False):
-    for parameter in agreement["parameters"]["fulfillment"]:
-        if parameter["externalId"] == parameter_name and parameter.get("value"):
-            if is_date:
-                return datetime.strptime(parameter["value"], "%Y-%m-%d").date()
-            return parameter["value"]
-    return None
 
-
-def convert_expenses_to_daily(expenses):
-    daily_expenses = {0: 0}
-    for day in range(1, len(expenses) + 1):
-        if day not in expenses:
-            daily_expenses[day] = 0
-            continue
-        daily_expenses[day] = expenses[day] - expenses[day - 1]
-
+def compute_daily_expenses(cumulative_expenses:dict[int, Decimal],
+                           last_day_of_month:int)->dict[int,Decimal]:
+    """
+    This function computes the daily expenses based on the given cumulative expenses.
+    It also fills in any missing days using the previous days' cumulative value.
+    Args:
+        cumulative_expenses: dict[int,Decimal]: the original cumulative expenses dictionary
+        last_day_of_month: the last day of the month
+    Returns:
+        daily_expenses: dict[int,Decimal]: the daily expenses dictionary
+    """
+    daily_expenses = {}
+    previous_amount = Decimal(0)
+    for day in range(1, last_day_of_month + 1):
+        current = Decimal(cumulative_expenses.get(day,previous_amount))
+        daily_expenses[day] = Decimal(current - previous_amount)
+        previous_amount = current
     return daily_expenses
+
 
 
 async def async_groupby(

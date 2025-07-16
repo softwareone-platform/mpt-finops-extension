@@ -45,7 +45,7 @@ class MPTAsyncClient(BaseAsyncAPIClient, PaginationSupportMixin):
 
     def fetch_authorizations(
         self,
-    ) -> AsyncGenerator[None, dict[str, Any]]:
+    ) -> AsyncGenerator[dict[str, Any]]:
         return self.collection_iterator(
             "/catalog/authorizations",
             rql=f"eq(product.id,{settings.MPT_PRODUCTS_IDS[0]})"
