@@ -5,7 +5,7 @@ from dateutil.relativedelta import relativedelta
 from django.core.management.base import BaseCommand
 
 from ffc.process_billing import (
-    BillingProcess,
+    process_billing,
 )
 
 
@@ -38,10 +38,8 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        bp = BillingProcess(
+        asyncio.run(process_billing(
             options["year"],
             options["month"],
             authorization_id=options.get("authorization"),
-            dry_run=options["dry_run"],
-        )
-        asyncio.run(bp.run())
+            dry_run=options["dry_run"]))

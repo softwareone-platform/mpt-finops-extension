@@ -6,7 +6,7 @@ import pytest
 import responses
 from swo.mpt.extensions.runtime.djapp.conf import get_for_product
 
-from ffc.process_billing import BillingProcess
+from ffc.process_billing import AuthorizationProcessor
 
 
 @pytest.fixture()
@@ -736,10 +736,10 @@ def ffc_employee():
 
 @pytest.fixture()
 def billing_process_instance():
-    return BillingProcess(
+    return AuthorizationProcessor(
         month=6,
         year=2025,
-        authorization_id="AUTH-123-1234",
+        authorization={}
     )
 
 
