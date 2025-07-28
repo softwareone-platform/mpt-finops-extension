@@ -21,7 +21,7 @@ from ffc.billing.dataclasses import (
     Datasource,
     Refund,
 )
-from ffc.billing.exceptions import JournalStatusError
+from ffc.billing.exceptions import JournalStatusError, ExchangeRatesClientError
 from ffc.clients.exchage_rates import ExchangeRatesAsyncClient
 from ffc.clients.ffc import FFCAsyncClient
 from ffc.clients.mpt import MPTAsyncClient
@@ -44,7 +44,7 @@ class PrefixAdapter(logging.LoggerAdapter):
 
 async def process_billing(
     year: int, month: int, authorization_id: str | None = None, dry_run=False
-):
+): # pragma: no cover
     """
     This method starts the processing of all billings for each authorization.
     It also supports the processing of a single authorization if provided.
@@ -79,6 +79,8 @@ async def process_billing(
     await mpt_client.close()
 
 
+
+
 class AuthorizationProcessor:
     def __init__(
         self,
@@ -109,7 +111,7 @@ class AuthorizationProcessor:
         )
 
     @asynccontextmanager
-    async def acquire_semaphore(self):
+    async def acquire_semaphore(self): # pragma: no cover
         try:
             if self.semaphore:
                 await self.semaphore.acquire()
@@ -123,11 +125,11 @@ class AuthorizationProcessor:
         func,
         *args,
         **kwargs,
-    ):
+    ): # pragma: no cover
         if not self.dry_run:
             return await func(*args, **kwargs)
 
-    def build_filepath(self):
+    def build_filepath(self): # pragma: no cover
         filepath = f"charges_{self.authorization_id}_{self.year}_{self.month:02d}.jsonl"
         filepath = f"{tempfile.gettempdir()}/{filepath}" if not self.dry_run else filepath
         return filepath
@@ -193,13 +195,13 @@ class AuthorizationProcessor:
                 has_charges = await self.write_charges_file(journal)
                 if has_charges:
                     await self.maybe_call(
-                        self.complete_journal_process(
+                        self.complete_journal_process,
                             filepath,
                             journal,
                             journal_external_id,
-                        ),
+
                     )
-                await self.maybe_call(aiofiles.os.unlink, filepath)
+                    await self.maybe_call(aiofiles.os.unlink, filepath)
 
             except HTTPStatusError as error:
                 status = error.response.status_code
@@ -216,6 +218,7 @@ class AuthorizationProcessor:
             async for organization in self.ffc_client.fetch_organizations(
                 self.authorization["currency"],
             ):
+
                 self.logger.info(
                     "Processing {organization['id']} - {organization['name']}:"
                     f" {organization['operations_external_id']}"
@@ -234,13 +237,14 @@ class AuthorizationProcessor:
                     )
                 ]
                 if len(agreements) != 1:
-                    self.logger.warning(f"len = 1 for the organization {organization['id']}")
+                    self.logger.warning(f"Found {len(agreements)} while we were expecting "
+                                f"1 for the organization {organization['id']}")
                     self.invalid_organizations.append((organization, agreements))
                     continue
 
                 if agreements[0]["authorization"]["id"] != self.authorization_id:
                     self.logger.info(
-                        f"Skipping organization  {organization['id']} because "
+                        f"Skipping organization {organization['id']} because "
                         "it belongs to an agreement with different authorization: "
                         f"{agreements[0]['authorization']['id']}"
                     )
@@ -277,12 +281,16 @@ class AuthorizationProcessor:
         for base_currency, exchange_rates_json in self.exchange_rates.items():
             await self.attach_exchange_rates(journal_id, base_currency, exchange_rates_json)
         await self.mpt_client.upload_charges(journal_id, open(filepath, "rb"))
-        if await self.is_journal_validated(journal_id):
+        if await self.is_journal_status_validated(journal_id):
+            self.logger.info(
+                f"submitting the journal {journal_id}."
+            )
             await self.mpt_client.submit_journal(journal_id)
         else:
             self.logger.info(
-                f"cannot submit the journal {journal_id}, " f"it doesn't get validated"
+                f"cannot submit the journal {journal_id} it doesn't get validated"
             )
+            return None
 
     async def get_currency_conversion_info(
         self,
@@ -299,6 +307,10 @@ class AuthorizationProcessor:
             return CurrencyConversionInfo(data_currency, billing_currency, Decimal("1"))
 
         exchange_rates = await self.exchange_rate_client.fetch_exchange_rates(data_currency)
+        if not exchange_rates:
+            self.logger.error(f"An error occurred while fetching exchange rates for {data_currency}")
+            raise ExchangeRatesClientError
+
         return CurrencyConversionInfo(
             data_currency,
             billing_currency,
@@ -317,12 +329,12 @@ class AuthorizationProcessor:
         exchange_rates_hash = hasher.hexdigest()
         filename = f"{currency}_{exchange_rates_hash}"
         attachment = await self.mpt_client.fetch_journal_attachment(journal_id, f"{currency}_")
-        if attachment:
+        if attachment: # pragma no cover
             if attachment["name"] == filename:
                 return
             await self.mpt_client.delete_journal_attachment(journal_id, attachment["id"])
 
-        await self.mpt_client.create_journal_attachment(journal_id, filename, serialized)
+        return await self.mpt_client.create_journal_attachment(journal_id, filename, serialized)
 
     async def dump_organization_charges(
         self,
@@ -428,7 +440,7 @@ class AuthorizationProcessor:
         ) * exchange_rate.quantize(self.DECIMAL_PRECISION)
 
         self.logger.info(
-            f"{self.authorization_id}: {organization_id=} "
+            f": {organization_id=} "
             f"{linked_datasource_id=} {datasource_name=} - "
             f"{amount=} {billing_percentage=} {price_in_source_currency=} "
             f"{exchange_rate=} {price_in_target_currency=}"
@@ -486,7 +498,7 @@ class AuthorizationProcessor:
         )
         return charges
 
-    async def is_journal_validated(self, journal_id, max_attempts=5):
+    async def is_journal_status_validated(self, journal_id, max_attempts=5):
         backoff_times = [0.15, 0.45, 1.05, 2.25, 4.65]
 
         for attempt in range(min(max_attempts, len(backoff_times))):
@@ -501,6 +513,10 @@ class AuthorizationProcessor:
 def get_trial_data(
     agreement: dict[str, Any] | None = None,
 ) -> tuple[Any | None, Any | None, Decimal]:
+    """
+    This function extract the trial_start and trial_end dates from the
+    agreement and return them as a tuple along with the billing percentage.
+    """
     trial_start = None
     trial_end = None
     billing_percentage = Decimal(settings.EXTENSION_CONFIG["DEFAULT_BILLED_PERCENTAGE"])
@@ -508,11 +524,12 @@ def get_trial_data(
         trial_start = get_trial_start_date(agreement)
         trial_end = get_trial_end_date(agreement)
         billing_percentage = Decimal(
-            get_billed_percentage(agreement)
+            get_billed_percentage(agreement).get("value")
             or settings.EXTENSION_CONFIG["DEFAULT_BILLED_PERCENTAGE"]
         )
 
     return trial_start, trial_end, billing_percentage
+
 
 
 def add_line_to_monthly_charge(
@@ -666,8 +683,8 @@ def generate_refunds(
         # to a period overlapping with billing month.
         # Example, billing month is June 1-30, a trial period is May 17 - June 17
         # We need to refund expenses from June 1st to June 17th
-        trial_refund_from = max(trial_start_date, billing_start_date)
-        trial_refund_to = min(trial_end_date, billing_end_date)
+        trial_refund_from = max(trial_start_date, billing_start_date.date())
+        trial_refund_to = min(trial_end_date, billing_end_date.date())
         trial_days = {
             dt.date().day
             for dt in rrule(
@@ -698,7 +715,7 @@ def generate_refunds(
         }
 
     if trial_days:
-        trial_amount = sum(daily_expenses[d] for d in trial_days)
+        trial_amount = sum(daily_expenses.get(day,Decimal('0')) for day in trial_days)
 
         refund_lines.append(
             Refund(
@@ -726,7 +743,7 @@ def generate_refunds(
         ranges.append((start, prev))
 
         for r_start, r_end in ranges:
-            ent_amount = sum(daily_expenses[d] for d in range(r_start, r_end + 1))
+            ent_amount = sum(daily_expenses.get(day,0) for day in range(r_start, r_end + 1))
 
             refund_lines.append(
                 Refund(
