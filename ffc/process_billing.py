@@ -11,7 +11,7 @@ import aiofiles
 import aiofiles.os
 from _decimal import Decimal
 from dateutil.relativedelta import relativedelta
-from dateutil.rrule import rrule, DAILY
+from dateutil.rrule import DAILY, rrule
 from django.conf import settings
 from httpx import HTTPStatusError
 
@@ -21,11 +21,11 @@ from ffc.billing.dataclasses import (
     Datasource,
     Refund,
 )
-from ffc.billing.exceptions import JournalStatusError, ExchangeRatesClientError
+from ffc.billing.exceptions import ExchangeRatesClientError, JournalStatusError
 from ffc.clients.exchage_rates import ExchangeRatesAsyncClient
 from ffc.clients.ffc import FFCAsyncClient
 from ffc.clients.mpt import MPTAsyncClient
-from ffc.parameters import get_trial_start_date, get_trial_end_date, get_billed_percentage
+from ffc.parameters import get_billed_percentage, get_trial_end_date, get_trial_start_date
 from ffc.utils import (
     async_groupby,
     compute_daily_expenses,
@@ -71,10 +71,11 @@ async def process_billing(
             tasks.append(asyncio.create_task(processor.process()))
 
         logger.info(f"Processing {len(tasks)} authorizations for {product_id}")
-        results = await asyncio.gather(*tasks)
-        for result in results:  # pragma no cover
-            # todo process errors and send notification
-            pass
+        await asyncio.gather(*tasks)
+        # results = await asyncio.gather(*tasks)
+        # for result in results:  # pragma no cover
+        #     # todo process errors and send notification
+        #     pass
 
     await mpt_client.close()
 
@@ -130,11 +131,13 @@ class AuthorizationProcessor:
         """
         Conditionally calls and awaits the given asynchronous function.
 
-        If `self.dry_run` is False, this method awaits and returns the result of `func(*args, **kwargs)`.
+        If `self.dry_run` is False, this method awaits and returns the result
+        of `func(*args, **kwargs)`.
         If `self.dry_run` is True, the function is not called and None is returned.
 
         Parameters:
-            func (Callable[..., Awaitable]): The asynchronous function to potentially call.
+            func (Callable[..., Awaitable]): The asynchronous function to
+            potentially call.
             *args: Positional arguments to pass to the function.
             **kwargs: Keyword arguments to pass to the function.
 
