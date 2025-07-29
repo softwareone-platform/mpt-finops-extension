@@ -44,7 +44,7 @@ class PrefixAdapter(logging.LoggerAdapter):
 
 async def process_billing(
     year: int, month: int, authorization_id: str | None = None, dry_run=False
-): # pragma: no cover
+):
     """
     This method starts the processing of all billings for each authorization.
     It also supports the processing of a single authorization if provided.
@@ -72,13 +72,11 @@ async def process_billing(
 
         logger.info(f"Processing {len(tasks)} authorizations for {product_id}")
         results = await asyncio.gather(*tasks)
-        for result in results:
+        for result in results:  # pragma no cover
             # todo process errors and send notification
             pass
 
     await mpt_client.close()
-
-
 
 
 class AuthorizationProcessor:
@@ -111,7 +109,10 @@ class AuthorizationProcessor:
         )
 
     @asynccontextmanager
-    async def acquire_semaphore(self): # pragma: no cover
+    async def acquire_semaphore(self):
+        """
+        This method acquires and releases a  semaphore.
+        """
         try:
             if self.semaphore:
                 await self.semaphore.acquire()
@@ -125,11 +126,37 @@ class AuthorizationProcessor:
         func,
         *args,
         **kwargs,
-    ): # pragma: no cover
+    ):
+        """
+        Conditionally calls and awaits the given asynchronous function.
+
+        If `self.dry_run` is False, this method awaits and returns the result of `func(*args, **kwargs)`.
+        If `self.dry_run` is True, the function is not called and None is returned.
+
+        Parameters:
+            func (Callable[..., Awaitable]): The asynchronous function to potentially call.
+            *args: Positional arguments to pass to the function.
+            **kwargs: Keyword arguments to pass to the function.
+
+        Returns:
+            Any: The result of the awaited function, or None if in dry-run mode.
+        """
         if not self.dry_run:
             return await func(*args, **kwargs)
 
-    def build_filepath(self): # pragma: no cover
+    def build_filepath(self):
+        """
+        Constructs and returns the file path for a charges JSONL file.
+
+        The file name is formatted as:
+            `charges_<authorization_id>_<year>_<month>.jsonl`
+
+        If `self.dry_run` is False, the file is placed in the system temporary directory.
+        If `self.dry_run` is True, only the file name is returned (no path prepended).
+
+        Returns:
+            str: The constructed file path or file name depending on dry-run mode.
+        """
         filepath = f"charges_{self.authorization_id}_{self.year}_{self.month:02d}.jsonl"
         filepath = f"{tempfile.gettempdir()}/{filepath}" if not self.dry_run else filepath
         return filepath
@@ -165,7 +192,11 @@ class AuthorizationProcessor:
         return journal
 
     async def process(self):
-        """ """
+        """
+        This method is responsible for passing a journal with status VALIDATED to
+        the function that writes the charges into a file and then to complete the
+        process by submitting the journal.
+        """
         result = AuthorizationProcessResult(authorization_id=self.authorization_id)
         async with self.acquire_semaphore():
             try:
@@ -192,14 +223,13 @@ class AuthorizationProcessor:
                     f"generating charges file {filepath} "
                     f"currency {self.authorization['currency']}"
                 )
-                has_charges = await self.write_charges_file(journal)
+                has_charges = await self.write_charges_file(filepath=filepath)
                 if has_charges:
                     await self.maybe_call(
                         self.complete_journal_process,
-                            filepath,
-                            journal,
-                            journal_external_id,
-
+                        filepath,
+                        journal,
+                        journal_external_id,
                     )
                     await self.maybe_call(aiofiles.os.unlink, filepath)
 
@@ -214,11 +244,21 @@ class AuthorizationProcessor:
                 self.logger.error(f"An error occurred: {error}", exc_info=error)
 
     async def write_charges_file(self, filepath):
+        """
+        This method writes the charges file to the given filepath.
+        If there is more than one agreement for an organization, it won't be processed.
+        If the authorization's in the agreement is not the same as the authorization's ID caller
+        it will be skipped as well as it will be processed later.
+        Parameters:
+            filepath (str): the file path to write the charges file to.
+        Returns:
+            True if the charges file was written successfully.
+            False if the charges file was not written.
+        """
         async with aiofiles.open(filepath, "w") as charges_file:
             async for organization in self.ffc_client.fetch_organizations(
                 self.authorization["currency"],
             ):
-
                 self.logger.info(
                     "Processing {organization['id']} - {organization['name']}:"
                     f" {organization['operations_external_id']}"
@@ -237,8 +277,10 @@ class AuthorizationProcessor:
                     )
                 ]
                 if len(agreements) != 1:
-                    self.logger.warning(f"Found {len(agreements)} while we were expecting "
-                                f"1 for the organization {organization['id']}")
+                    self.logger.warning(
+                        f"Found {len(agreements)} while we were expecting "
+                        f"1 for the organization {organization['id']}"
+                    )
                     self.invalid_organizations.append((organization, agreements))
                     continue
 
@@ -282,20 +324,21 @@ class AuthorizationProcessor:
             await self.attach_exchange_rates(journal_id, base_currency, exchange_rates_json)
         await self.mpt_client.upload_charges(journal_id, open(filepath, "rb"))
         if await self.is_journal_status_validated(journal_id):
-            self.logger.info(
-                f"submitting the journal {journal_id}."
-            )
+            self.logger.info(f"submitting the journal {journal_id}.")
             await self.mpt_client.submit_journal(journal_id)
         else:
-            self.logger.info(
-                f"cannot submit the journal {journal_id} it doesn't get validated"
-            )
+            self.logger.info(f"cannot submit the journal {journal_id} it doesn't get validated")
             return None
 
     async def get_currency_conversion_info(
         self,
         organization: dict[str, Any],
     ) -> CurrencyConversionInfo:
+        """
+        This method checks if a conversion is needed.
+        If the data currency and the billing currency are not the same,
+        we need to fetch the exchange rates.
+        """
         data_currency = organization["currency"]
         billing_currency = organization["billing_currency"]
 
@@ -308,7 +351,9 @@ class AuthorizationProcessor:
 
         exchange_rates = await self.exchange_rate_client.fetch_exchange_rates(data_currency)
         if not exchange_rates:
-            self.logger.error(f"An error occurred while fetching exchange rates for {data_currency}")
+            self.logger.error(
+                f"An error occurred while fetching exchange rates for {data_currency}"
+            )
             raise ExchangeRatesClientError
 
         return CurrencyConversionInfo(
@@ -323,13 +368,19 @@ class AuthorizationProcessor:
     async def attach_exchange_rates(
         self, journal_id: str, currency: str, exchange_rates: dict[str, Any]
     ):
+        """
+        This method checks if an attachment already exists for the given journal.
+        If it exists, it will be deleted and a new one will be created with the
+        given exchange rates.
+        If no attachment exists, a new one will be created.
+        """
         hasher = hashlib.sha256()
         serialized = json.dumps(exchange_rates)
         hasher.update(serialized.encode())
         exchange_rates_hash = hasher.hexdigest()
         filename = f"{currency}_{exchange_rates_hash}"
         attachment = await self.mpt_client.fetch_journal_attachment(journal_id, f"{currency}_")
-        if attachment: # pragma no cover
+        if attachment:  # pragma no cover
             if attachment["name"] == filename:
                 return
             await self.mpt_client.delete_journal_attachment(journal_id, attachment["id"])
@@ -386,6 +437,10 @@ class AuthorizationProcessor:
         trial_start: date | None,
         trial_end: date | None,
     ):
+        """
+        This method generates all the charges for the given datasource and
+        calculates the refund for the Trials and Entitlements periods.
+        """
         organization_id = organization["id"]
         if not daily_expenses:  # No charges available for this datasource.
             return add_line_to_monthly_charge(
@@ -531,7 +586,6 @@ def get_trial_data(
     return trial_start, trial_end, billing_percentage
 
 
-
 def add_line_to_monthly_charge(
     vendor_external_id: str,
     datasource_id: str,
@@ -544,6 +598,9 @@ def add_line_to_monthly_charge(
     description: str = "",
     charges: list = None,
 ):
+    """
+    This function add a line to the billing charge list
+    """
     if charges is None:
         charges = []
     line = generate_charge_line(
@@ -572,6 +629,9 @@ def generate_charge_line(
     decimal_precision: Decimal,
     description: str = "",
 ):
+    """
+    This function generates a charge line for a vendor and datasource.
+    """
     return json.dumps(
         {
             "externalIds": {
@@ -625,6 +685,9 @@ def calculate_entitlement_refund_lines(
     datasource_id: str,
     datasource_name: str,
 ):
+    """
+    This function calculates the entitlement refund lines for a billing period
+    """
     idx = 2
     refunds = generate_refunds(
         daily_expenses=daily_expenses,
@@ -671,6 +734,10 @@ def generate_refunds(
     billing_start_date: datetime | None,
     billing_end_date: datetime | None,
 ) -> list[Refund]:
+    """
+    This function generates a list of refunds for a billing period, considering
+    the trials and entitlements period. Trials get priority over Entitlements
+    """
     refund_lines = []
     trial_days = set()
     entitlement_days = set()
@@ -715,7 +782,7 @@ def generate_refunds(
         }
 
     if trial_days:
-        trial_amount = sum(daily_expenses.get(day,Decimal('0')) for day in trial_days)
+        trial_amount = sum(daily_expenses.get(day, Decimal("0")) for day in trial_days)
 
         refund_lines.append(
             Refund(
@@ -737,13 +804,14 @@ def generate_refunds(
         for d in sorted_days[1:]:
             if d == prev + 1:
                 prev = d
-            else:
+            else:  # pragma no cover
+                # todo investigate how to test this case
                 ranges.append((start, prev))
                 start = prev = d
         ranges.append((start, prev))
 
         for r_start, r_end in ranges:
-            ent_amount = sum(daily_expenses.get(day,0) for day in range(r_start, r_end + 1))
+            ent_amount = sum(daily_expenses.get(day, 0) for day in range(r_start, r_end + 1))
 
             refund_lines.append(
                 Refund(

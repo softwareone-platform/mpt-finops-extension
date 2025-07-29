@@ -3,7 +3,7 @@ import logging
 import tempfile
 from datetime import date, datetime, timezone
 from decimal import Decimal
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
@@ -777,7 +777,7 @@ async def test_process_no_charges_written(billing_process_instance, existing_jou
 
 
 @pytest.mark.asyncio()
-async def test_process_failure_http_status_error(mocker, billing_process_instance, caplog):
+async def test_process_failure_http_status_error(billing_process_instance, caplog):
     """if an Exception occurs, an ERROR message will be logger"""
     billing_process_instance.mpt_client = AsyncMock()
     mock_json = {"error": "Invalid request"}
@@ -827,3 +827,130 @@ async def test_process_exception(billing_process_instance, caplog):
 
 
 # ----------------------------------------------------------------------------------------------------------
+# - Test maybe_call()
+@pytest.mark.asyncio()
+async def test_maybe_call_dry_run_true(billing_process_instance):
+    """if dry_run is True, the async function should NOT be executed."""
+    mock_func = AsyncMock(return_value="should not be called")
+    billing_process_instance.dry_run = True
+
+    result = await billing_process_instance.maybe_call(mock_func, 1, key="value")
+
+    mock_func.assert_not_awaited()
+    assert result is None
+
+
+@pytest.mark.asyncio()
+async def test_maybe_call_dry_run_false(billing_process_instance):
+    """if dry_run is False, the async function should be executed."""
+    mock_func = AsyncMock(return_value="called")
+
+    result = await billing_process_instance.maybe_call(mock_func, 1, key="value")
+
+    mock_func.assert_awaited_once_with(1, key="value")
+    assert result == "called"
+
+
+# -----------------------------------------------------------------------------------
+# - Test acquire_semaphore()
+
+
+@pytest.mark.asyncio()
+async def test_acquire_semaphore_acquires_and_releases(billing_process_instance):
+    """the semaphore should be acquired and released once for each call"""
+    semaphore = AsyncMock()
+    billing_process_instance.semaphore = semaphore
+
+    async def inner():
+        semaphore.acquire.assert_awaited_once()
+        semaphore.release.assert_not_awaited()
+
+    async with billing_process_instance.acquire_semaphore():
+        await inner()
+
+    semaphore.release.assert_awaited_once()
+
+
+# -----------------------------------------------------------------------------------
+# - Test build_filepath()
+@pytest.mark.parametrize("dry_run", [True, False])
+def test_build_filepath_formats_correctly(dry_run, billing_process_instance):
+    """a file path should be generated differently based on the value of dry_run"""
+    billing_process_instance.dry_run = dry_run
+
+    result = billing_process_instance.build_filepath()
+    expected_filename = "charges_AUT-5305-9928_2025_06.jsonl"
+
+    if dry_run:
+        assert result == expected_filename
+    else:
+        assert result.endswith(expected_filename)
+        assert result.startswith(tempfile.gettempdir())
+
+
+# -----------------------------------------------------------------------------------
+# - Test process_billing()
+
+
+@pytest.mark.asyncio()
+@patch("ffc.process_billing.MPTAsyncClient")
+@patch("ffc.process_billing.AuthorizationProcessor")
+@patch("ffc.process_billing.settings")
+async def test_process_billing_with_single_authorization(
+    mock_settings, mock_processor_cls, mock_client_cls
+):
+    """if the process_billing() is started with an authorization, it fetches the authorization's payload
+    and process the related charges and the AuthorizationProcessor.process() will be called once"""
+    mock_settings.MPT_PRODUCTS_IDS = ["product_1"]
+
+    mock_authorization = {"id": "AUTH1"}
+    mock_client = mock_client_cls.return_value
+    mock_client.fetch_authorization = AsyncMock(return_value=mock_authorization)
+
+    mock_processor = mock_processor_cls.return_value
+    mock_processor.process = AsyncMock()
+
+    from ffc.process_billing import process_billing
+
+    await process_billing(2025, 7, "AUTH1", dry_run=True)
+
+    mock_client.fetch_authorization.assert_awaited_once_with("AUTH1")
+    mock_processor_cls.assert_called_once_with(2025, 7, mock_authorization, True)
+    mock_processor.process.assert_awaited_once()
+
+
+@pytest.mark.asyncio()
+@patch("ffc.process_billing.MPTAsyncClient")
+@patch("ffc.process_billing.AuthorizationProcessor")
+@patch("ffc.process_billing.settings")
+async def test_process_billing_with_multiple_authorizations(
+    mock_settings, mock_processor_cls, mock_mpt_client_cls
+):
+    """if the process_billing() is started without a given authorization's ID, all the authorizations
+    will be fetched and for each of them a task for calling the process() will be executed"""
+    mock_settings.MPT_PRODUCTS_IDS = ["product_1"]
+    mock_settings.EXTENSION_CONFIG = {"FFC_BILLING_PROCESS_MAX_CONCURRENCY": "2"}
+
+    async def async_gen():
+        yield {"id": "AUTH1"}
+        yield {"id": "AUTH2"}
+
+    mock_mpt_client = MagicMock()
+    mock_mpt_client.fetch_authorizations = MagicMock(return_value=async_gen())
+    mock_mpt_client.close = AsyncMock()
+    mock_mpt_client_cls.return_value = mock_mpt_client
+
+    mock_processor = mock_processor_cls.return_value
+    mock_processor.process = AsyncMock()
+
+    from ffc.process_billing import process_billing
+
+    await process_billing(2025, 7)
+
+    assert mock_processor_cls.call_count == 2
+    mock_processor.process.assert_awaited()
+    mock_mpt_client.fetch_authorizations.assert_called_once()
+    mock_mpt_client.close.assert_awaited_once()
+
+
+# -----------------------------------------------------------------------------------
