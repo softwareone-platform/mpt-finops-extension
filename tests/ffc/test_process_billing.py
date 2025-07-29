@@ -50,7 +50,8 @@ async def test_evaluate_journal_status_validated(
 async def test_evaluate_journal_different_from_draft_and_not_validated(
     existing_journal_file, billing_process_instance, caplog
 ):
-    """if a journal exists and its status is != from Validated or Draft, it should raise a JournalStatusError"""
+    """if a journal exists and its status is != from Validated or Draft,
+    it should raise a JournalStatusError"""
     billing_process_instance.mpt_client = AsyncMock()
     existing_journal_file[0]["status"] = "Another Status"
     billing_process_instance.mpt_client.get_journal = AsyncMock(
@@ -187,7 +188,8 @@ async def test_write_charges_file_agr_000(
             filepath=f"{tempfile.gettempdir()}/test_generate_charges_file.json",
         )
         assert (
-            "[AUT-5305-9928] Skip organization FORG-4801-6958-2949 - SoftwareOne (Test Environment) because of ID AGR-0000-0000-0000"
+            "[AUT-5305-9928] Skip organization FORG-4801-6958-2949 - "
+            "SoftwareOne (Test Environment) because of ID AGR-0000-0000-0000"
             in caplog.messages[1]
         )
         assert result is False
@@ -202,7 +204,8 @@ async def test_write_charges_file_many_agreements(
     patch_fetch_organization_expenses,
     caplog,
 ):
-    """if many agreements are provided for a given org, they will be skipped and no file will be written"""
+    """if many agreements are provided for a given org,
+    they will be skipped and no file will be written"""
     get_agreement_details[0]["authorization"]["id"] = "AUT-5305-9928"
     get_agreement_details.append(get_agreement_details[0])
 
@@ -225,7 +228,8 @@ async def test_write_charges_file_many_agreements(
             filepath=f"{tempfile.gettempdir()}/test_generate_charges_file.json",
         )
         assert (
-            "[AUT-5305-9928] Found 2 while we were expecting 1 for the organization FORG-4801-6958-2949"
+            "[AUT-5305-9928] Found 2 while we were expecting "
+            "1 for the organization FORG-4801-6958-2949"
             in caplog.messages[1]
         )
         assert result is False
@@ -261,7 +265,9 @@ async def test_write_charges_file_different_auth_id(
             filepath=f"{tempfile.gettempdir()}/test_generate_charges_file.json",
         )
         assert (
-            "[AUT-5305-9928] Skipping organization FORG-4801-6958-2949 because it belongs to an agreement with different authorization: AUT-5305-9955"
+            "[AUT-5305-9928] Skipping organization "
+            "FORG-4801-6958-2949 because it belongs "
+            "to an agreement with different authorization: AUT-5305-9955"
             in caplog.messages[1]
         )
         assert result is False
@@ -353,7 +359,8 @@ async def test_complete_journal_process_fail(
     get_exchange_rate,
     caplog,
 ):
-    """if a Journal is created successfully, the exchanges_rate_json will be attached. If the journal's status
+    """if a Journal is created successfully,
+    the exchanges_rate_json will be attached. If the journal's status
     is not validated, it won't be submitted. None is returned"""
     billing_process_instance.mpt_client = AsyncMock()
     billing_process_instance.mpt_client.create_journal = AsyncMock(
@@ -388,7 +395,8 @@ async def test_complete_journal_process_fail(
 
 @pytest.mark.asyncio()
 def test_get_trial_data(get_agreement_with_trial):
-    """Providing an agreement, a tuple with trial_start, trial_end and billing_percentage will be returned"""
+    """Providing an agreement, a tuple with trial_start,
+    trial_end and billing_percentage will be returned"""
     trial_start, trial_end, billing_percentage = get_trial_data(get_agreement_with_trial[0])
     assert isinstance(trial_start, date)
     assert isinstance(trial_end, date)
@@ -427,7 +435,14 @@ async def test_generate_datasource_charges_empty_daily_expenses(
     assert isinstance(response[0], str)
     assert (
         response[0]
-        == '{"externalIds": {"vendor": "34654563456", "invoice": "-", "reference": "1234"}, "search": {"subscription": {"criteria": "subscription.externalIds.vendor", "value": "FORG-4801-6958-2949"}, "item": {"criteria": "item.externalIds.vendor", "value": ""}}, "period": {"start": "2025-06-01", "end": "2025-06-30"}, "price": {"unitPP": "0.0000", "PPx1": "0.0000"}, "quantity": 1, "description": {"value1": "Test", "value2": "No charges available for this datasource."}, "segment": "COM"}\n'
+        == '{"externalIds": {"vendor": "34654563456", "invoice": "-", '
+           '"reference": "1234"}, "search": {"subscription": '
+           '{"criteria": "subscription.externalIds.vendor", "value": "FORG-4801-6958-2949"}, '
+           '"item": {"criteria": "item.externalIds.vendor", "value": ""}}, '
+           '"period": {"start": "2025-06-01", "end": "2025-06-30"}, '
+           '"price": {"unitPP": "0.0000", "PPx1": "0.0000"}, '
+           '"quantity": 1, "description": {"value1": "Test", '
+           '"value2": "No charges available for this datasource."}, "segment": "COM"}\n'
     )
     assert (
         json.loads(response[0]).get("description").get("value2")
@@ -466,14 +481,36 @@ async def test_generate_datasource_charges_with_daily_expenses(
     assert isinstance(response[0], str)
     assert (
         response[0]
-        == '{"externalIds": {"vendor": "34654563456-01", "invoice": "-", "reference": "34654563488"}, "search": {"subscription": {"criteria": "subscription.externalIds.vendor", "value": "FORG-4801-6958-2949"}, "item": {"criteria": "item.externalIds.vendor", "value": ""}}, "period": {"start": "2025-06-01", "end": "2025-06-30"}, "price": {"unitPP": "183.9829", "PPx1": "183.9829"}, "quantity": 1, "description": {"value1": "Test", "value2": ""}, "segment": "COM"}\n'
+        == '{"externalIds": {"vendor": "34654563456-01", '
+           '"invoice": "-", "reference": "34654563488"}, '
+           '"search": {"subscription": {"criteria": "subscription.externalIds.vendor", '
+           '"value": "FORG-4801-6958-2949"}, '
+           '"item": {"criteria": "item.externalIds.vendor", "value": ""}}, '
+           '"period": {"start": "2025-06-01", "end": "2025-06-30"}, '
+           '"price": {"unitPP": "183.9829", "PPx1": "183.9829"}, '
+           '"quantity": 1, "description": {"value1": "Test", "value2": ""}, '
+           '"segment": "COM"}\n'
     )
     assert (
         response[1]
-        == '{"externalIds": {"vendor": "34654563456-02", "invoice": "-", "reference": "34654563488"}, "search": {"subscription": {"criteria": "subscription.externalIds.vendor", "value": "FORG-4801-6958-2949"}, "item": {"criteria": "item.externalIds.vendor", "value": ""}}, "period": {"start": "2025-06-01", "end": "2025-06-30"}, "price": {"unitPP": "-67.6346", "PPx1": "-67.6346"}, "quantity": 1, "description": {"value1": "Test", "value2": "Refund due to trial period (from 01 Jun 2025 to 30 Jun 2025)"}, "segment": "COM"}\n'
+        == '{"externalIds": {"vendor": "34654563456-02", '
+           '"invoice": "-", "reference": "34654563488"}, '
+           '"search": {"subscription": {"criteria": "subscription.externalIds.vendor", '
+           '"value": "FORG-4801-6958-2949"}, '
+           '"item": {"criteria": "item.externalIds.vendor", "value": ""}}, '
+           '"period": {"start": "2025-06-01", "end": "2025-06-30"}, '
+           '"price": {"unitPP": "-67.6346", "PPx1": "-67.6346"}, '
+           '"quantity": 1, "description": '
+           '{"value1": "Test", '
+           '"value2": "Refund due to trial period (from 01 Jun 2025 to 30 Jun 2025)"}, '
+           '"segment": "COM"}\n'
     )
     assert (
-        "[AUT-5305-9928] : organization_id='FORG-4801-6958-2949' linked_datasource_id='34654563456' datasource_name='Test' - amount=Decimal('5326.0458') billing_percentage=Decimal('4') price_in_source_currency=Decimal('213.041832') exchange_rate=Decimal('0.8636') price_in_target_currency=Decimal('183.98289848')"
+        "[AUT-5305-9928] : organization_id='FORG-4801-6958-2949' "
+        "linked_datasource_id='34654563456' datasource_name='Test' - "
+        "amount=Decimal('5326.0458') billing_percentage=Decimal('4') "
+        "price_in_source_currency=Decimal('213.041832') "
+        "exchange_rate=Decimal('0.8636') price_in_target_currency=Decimal('183.98289848')"
         in caplog.messages[0]
     )
 
@@ -487,7 +524,8 @@ async def test_generate_datasource_charges_with_price_in_source_currency_eq_0(
     get_entitlement,
     caplog,
 ):
-    """if there are daily_expenses, but no charges, a line will be added to the monthly charge file with 0"""
+    """if there are daily_expenses, but no charges, a line will be added to
+    the monthly charge file with 0"""
     billing_process_instance.exchange_rate_client = AsyncMock()
     billing_process_instance.ffc_client = AsyncMock()
     billing_process_instance.ffc_client.fetch_entitlement = AsyncMock(return_value=get_entitlement)
@@ -509,7 +547,14 @@ async def test_generate_datasource_charges_with_price_in_source_currency_eq_0(
     assert isinstance(response[0], str)
     assert (
         response[0]
-        == '{"externalIds": {"vendor": "34654563456-01", "invoice": "-", "reference": "34654563488"}, "search": {"subscription": {"criteria": "subscription.externalIds.vendor", "value": "FORG-4801-6958-2949"}, "item": {"criteria": "item.externalIds.vendor", "value": ""}}, "period": {"start": "2025-06-01", "end": "2025-06-30"}, "price": {"unitPP": "0.0000", "PPx1": "0.0000"}, "quantity": 1, "description": {"value1": "Test", "value2": ""}, "segment": "COM"}\n'
+        == '{"externalIds": {"vendor": "34654563456-01", "invoice": "-", '
+           '"reference": "34654563488"}, '
+           '"search": {"subscription": {"criteria": "subscription.externalIds.vendor", '
+           '"value": "FORG-4801-6958-2949"}, '
+           '"item": {"criteria": "item.externalIds.vendor", "value": ""}}, '
+           '"period": {"start": "2025-06-01", "end": "2025-06-30"}, '
+           '"price": {"unitPP": "0.0000", "PPx1": "0.0000"}, "quantity": 1,'
+           ' "description": {"value1": "Test", "value2": ""}, "segment": "COM"}\n'
     )
     assert json.loads(response[0]).get("price").get("unitPP") == "0.0000"
 
@@ -546,11 +591,28 @@ async def test_generate_datasource_charges_with_no_entitlement(
     assert isinstance(response[0], str)
     assert (
         response[0]
-        == '{"externalIds": {"vendor": "34654563456-01", "invoice": "-", "reference": "34654563488"}, "search": {"subscription": {"criteria": "subscription.externalIds.vendor", "value": "FORG-4801-6958-2949"}, "item": {"criteria": "item.externalIds.vendor", "value": ""}}, "period": {"start": "2025-06-01", "end": "2025-06-30"}, "price": {"unitPP": "183.9829", "PPx1": "183.9829"}, "quantity": 1, "description": {"value1": "Test", "value2": ""}, "segment": "COM"}\n'
+        == '{"externalIds": {"vendor": "34654563456-01", "invoice": "-", '
+           '"reference": "34654563488"}, '
+           '"search": {"subscription": {"criteria": "subscription.externalIds.vendor", '
+           '"value": "FORG-4801-6958-2949"}, '
+           '"item": {"criteria": "item.externalIds.vendor", "value": ""}}, '
+           '"period": {"start": "2025-06-01", "end": "2025-06-30"}, '
+           '"price": {"unitPP": "183.9829", "PPx1": "183.9829"}, '
+           '"quantity": 1, "description": {"value1": "Test", "value2": ""}, "segment": "COM"}\n'
     )
     assert (
         response[1]
-        == '{"externalIds": {"vendor": "34654563456-02", "invoice": "-", "reference": "34654563488"}, "search": {"subscription": {"criteria": "subscription.externalIds.vendor", "value": "FORG-4801-6958-2949"}, "item": {"criteria": "item.externalIds.vendor", "value": ""}}, "period": {"start": "2025-06-01", "end": "2025-06-15"}, "price": {"unitPP": "-67.6346", "PPx1": "-67.6346"}, "quantity": 1, "description": {"value1": "Test", "value2": "Refund due to trial period (from 01 Jun 2025 to 15 Jun 2025)"}, "segment": "COM"}\n'
+        == '{"externalIds": {"vendor": "34654563456-02", "invoice": "-", '
+           '"reference": "34654563488"}, '
+        '"search": {"subscription": {"criteria": "subscription.externalIds.vendor", '
+        '"value": "FORG-4801-6958-2949"}, '
+           '"item": {"criteria": "item.externalIds.vendor", "value": ""}},'
+        ' "period": {"start": "2025-06-01", "end": "2025-06-15"}, '
+        '"price": {"unitPP": "-67.6346", "PPx1": "-67.6346"}, '
+        '"quantity": 1, '
+           '"description": {"value1": "Test", '
+           '"value2": "Refund due to trial period (from 01 Jun 2025 to 15 Jun 2025)"},'
+           ' "segment": "COM"}\n'
     )
 
 
@@ -597,7 +659,8 @@ async def test_get_currency_conversion_info_no_needed(
         )
         assert isinstance(result, CurrencyConversionInfo)
     assert (
-        "[AUT-5305-9928] organization FORG-4801-6958-2949 - SoftwareOne (Test Environment) doesn't need currency conversion"
+        "[AUT-5305-9928] organization FORG-4801-6958-2949 - SoftwareOne (Test Environment) "
+        "doesn't need currency conversion"
         in caplog.messages[0]
     )
 
@@ -731,7 +794,8 @@ def test_generate_refunds_no_entitlement_end_date(get_daily_expenses):
 # - Test process()
 @pytest.mark.asyncio()
 async def test_process_no_count_active_agreements(billing_process_instance, caplog):
-    """if an error occur getting the total number of active agreements, an error message will be logged.
+    """if an error occur getting the total number of active agreements,
+    an error message will be logged.
     and the error will be added to the list of errors"""
     billing_process_instance.mpt_client = AsyncMock()
     billing_process_instance.mpt_client.count_active_agreements = AsyncMock(return_value=0)
@@ -826,7 +890,7 @@ async def test_process_exception(billing_process_instance, caplog):
     assert "[AUT-5305-9928] An error occurred: No good Reasons" in caplog.messages[0]
 
 
-# ----------------------------------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------------
 # - Test maybe_call()
 @pytest.mark.asyncio()
 async def test_maybe_call_dry_run_true(billing_process_instance):
@@ -899,8 +963,10 @@ def test_build_filepath_formats_correctly(dry_run, billing_process_instance):
 async def test_process_billing_with_single_authorization(
     mock_settings, mock_processor_cls, mock_client_cls
 ):
-    """if the process_billing() is started with an authorization, it fetches the authorization's payload
-    and process the related charges and the AuthorizationProcessor.process() will be called once"""
+    """if the process_billing() is started with an authorization,
+    it fetches the authorization's payload
+    and process the related charges and the
+    AuthorizationProcessor.process() will be called once"""
     mock_settings.MPT_PRODUCTS_IDS = ["product_1"]
 
     mock_authorization = {"id": "AUTH1"}
@@ -926,8 +992,10 @@ async def test_process_billing_with_single_authorization(
 async def test_process_billing_with_multiple_authorizations(
     mock_settings, mock_processor_cls, mock_mpt_client_cls
 ):
-    """if the process_billing() is started without a given authorization's ID, all the authorizations
-    will be fetched and for each of them a task for calling the process() will be executed"""
+    """if the process_billing() is started without a given authorization's ID,
+    all the authorizations
+    will be fetched and for each of them a task for calling the process()
+    will be executed"""
     mock_settings.MPT_PRODUCTS_IDS = ["product_1"]
     mock_settings.EXTENSION_CONFIG = {"FFC_BILLING_PROCESS_MAX_CONCURRENCY": "2"}
 
