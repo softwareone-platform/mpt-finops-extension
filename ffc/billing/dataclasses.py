@@ -1,8 +1,8 @@
 from dataclasses import dataclass, field
-
-from _decimal import Decimal
 from datetime import date
 from typing import Any
+
+from _decimal import Decimal
 
 
 class AuthBillingProcess:
