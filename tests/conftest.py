@@ -5,10 +5,9 @@ from decimal import Decimal
 import jwt
 import pytest
 import responses
-
-from ffc.billing.dataclasses import AuthorizationProcessResult
 from swo.mpt.extensions.runtime.djapp.conf import get_for_product
 
+from ffc.billing.dataclasses import AuthorizationProcessResult
 from ffc.process_billing import AuthorizationProcessor
 
 

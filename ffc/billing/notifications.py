@@ -8,7 +8,6 @@ from adaptive_cards.containers import Column, ColumnSet
 from adaptive_cards.elements import TextBlock
 from django.conf import settings
 
-
 logger = logging.getLogger(__name__)
 
 
