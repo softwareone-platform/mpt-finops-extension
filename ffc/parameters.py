@@ -76,9 +76,7 @@ def set_ordering_parameter_error(order, param_external_id, error, required=True)
     return updated_order
 
 
-
-get_due_date = functools.partial(get_fulfillment_parameter, PARAM_DUE_DATE)
-
+get_due_date = functools.partial(get_ff_date_parameter, PARAM_DUE_DATE)
 
 
 def set_due_date(order, due_date):

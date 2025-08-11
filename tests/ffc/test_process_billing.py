@@ -10,7 +10,7 @@ import pytest
 
 from ffc.billing.dataclasses import AuthorizationProcessResult, CurrencyConversionInfo, Refund
 from ffc.billing.exceptions import ExchangeRatesClientError, JournalStatusError
-from ffc.process_billing import generate_refunds, get_trial_data
+from ffc.process_billing import generate_refunds, get_agreement_data
 
 # - test evaluate_journal_status()
 
@@ -390,23 +390,23 @@ async def test_complete_journal_process_fail(
 
 
 # --------------------------------------------------------------------------------------------
-# - Test get_trial_data()
+# - Test get_agreement_data()
 
 
 @pytest.mark.asyncio()
-def test_get_trial_data(get_agreement_with_trial):
+def test_get_agreement_data(get_agreement_with_trial):
     """Providing an agreement, a tuple with trial_start,
     trial_end and billing_percentage will be returned"""
-    trial_start, trial_end, billing_percentage = get_trial_data(get_agreement_with_trial[0])
+    trial_start, trial_end, billing_percentage = get_agreement_data(get_agreement_with_trial[0])
     assert isinstance(trial_start, date)
     assert isinstance(trial_end, date)
     assert isinstance(billing_percentage, Decimal)
 
 
 @pytest.mark.asyncio()
-def test_get_trial_data_no_agreement():
+def test_get_agreement_no_agreement():
     """If no agreement is provided, the trial_start and trial_end date will be None"""
-    trial_start, trial_end, billing_percentage = get_trial_data(None)
+    trial_start, trial_end, billing_percentage = get_agreement_data(None)
     assert trial_start is None
     assert trial_end is None
     assert isinstance(billing_percentage, Decimal)
