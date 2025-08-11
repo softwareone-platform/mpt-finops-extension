@@ -120,7 +120,7 @@ class AuthorizationProcessor:
             yield
         finally:
             if self.semaphore:
-                await self.semaphore.release()
+                self.semaphore.release()
 
     async def maybe_call(
         self,
@@ -186,13 +186,15 @@ class AuthorizationProcessor:
 
         journal_id = journal["id"]
         journal_status = journal["status"]
+        if journal_status in (VALIDATED, DRAFT):
+            return journal
         if journal_status == VALIDATED:
             self.logger.info(f"Found already validated journal: {journal_id}")
             return journal
         elif journal_status != DRAFT:
             self.logger.warning(f"Found the journal {journal_id} with status {journal_status}")
-            raise JournalStatusError()
-        return journal
+        raise JournalStatusError()
+
 
     async def process(self):
         """
@@ -218,10 +220,11 @@ class AuthorizationProcessor:
                 journal_external_id = f"{self.year:04d}{self.month:02d}"
                 filepath = self.build_filepath()
 
-                journal = await self.maybe_call(
-                    self.evaluate_journal_status,
-                    journal_external_id=journal_external_id,
-                )
+                journal = await self.maybe_call(self.evaluate_journal_status, journal_external_id)
+                if journal and journal["status"] == VALIDATED:
+                    await self.maybe_call(self.mpt_client.submit_journal, journal["id"])
+                    return result
+
                 self.logger.info(
                     f"generating charges file {filepath} "
                     f"currency {self.authorization['currency']}"
@@ -263,7 +266,7 @@ class AuthorizationProcessor:
                 self.authorization["currency"],
             ):
                 self.logger.info(
-                    "Processing {organization['id']} - {organization['name']}:"
+                    f"Processing {organization['id']} - {organization['name']}:"
                     f" {organization['operations_external_id']}"
                 )
                 if organization["operations_external_id"] == "AGR-0000-0000-0000":
@@ -299,7 +302,7 @@ class AuthorizationProcessor:
                 await self.dump_organization_charges(
                     charges_file,
                     organization,
-                    agreement=agreements[0] if len(agreements) == 1 else None,
+                    agreement=agreements[0],
                 )
 
             if await charges_file.tell() == 0:
@@ -411,7 +414,7 @@ class AuthorizationProcessor:
                 f"expenses for datasource "
                 f"{datasource_info.linked_datasource_id} -> {daily_expenses=}"
             )
-            trial_start, trial_end, billing_percentage = get_trial_data(agreement=agreement)
+            trial_start, trial_end, billing_percentage = get_agreement_data(agreement=agreement)
             charges = await self.generate_datasource_charges(
                 organization,
                 datasource_info.linked_datasource_id,
@@ -460,12 +463,13 @@ class AuthorizationProcessor:
 
         amount = daily_expenses[max(daily_expenses.keys())]
         price_in_source_currency = (
-            amount.quantize(self.DECIMAL_PRECISION)
-            * billing_percentage.quantize(self.DECIMAL_PRECISION)
-            / Decimal(100).quantize(self.DECIMAL_PRECISION)
-        )
+            amount
+            * billing_percentage
+            / Decimal(100)
+        ).quantize(self.DECIMAL_PRECISION)
         idx = 1
-        if price_in_source_currency == 0:
+        if price_in_source_currency == Decimal(0):
+            self.logger.info(f"****** {price_in_source_currency}: {price_in_source_currency == 0} *****")
             return add_line_to_monthly_charge(
                 vendor_external_id=f"{linked_datasource_id}-{idx:02d}",
                 datasource_id=datasource_id,
@@ -489,9 +493,10 @@ class AuthorizationProcessor:
             organization,
         )
         exchange_rate = currency_conversion_info.exchange_rate
-        self.exchange_rates[currency_conversion_info.base_currency] = (
-            currency_conversion_info.exchange_rates
-        )
+        if currency_conversion_info.exchange_rates:
+            self.exchange_rates[currency_conversion_info.base_currency] = (
+                currency_conversion_info.exchange_rates
+            )
 
         price_in_target_currency = price_in_source_currency.quantize(
             self.DECIMAL_PRECISION
@@ -524,7 +529,7 @@ class AuthorizationProcessor:
         )
         idx += 1
 
-        daily_expenses = compute_daily_expenses(daily_expenses, self.billing_start_date.day)
+        daily_expenses = compute_daily_expenses(daily_expenses, self.billing_end_date.day)
         entitlement = (
             await self.ffc_client.fetch_entitlement(
                 organization_id,
@@ -568,7 +573,7 @@ class AuthorizationProcessor:
         return False
 
 
-def get_trial_data(
+def get_agreement_data(
     agreement: dict[str, Any] | None = None,
 ) -> tuple[Any | None, Any | None, Decimal]:
     """
@@ -599,7 +604,7 @@ def add_line_to_monthly_charge(
     datasource_name: str,
     decimal_precision: Decimal,
     description: str = "",
-    charges: list = None,
+    charges: list | None = None,
 ):
     """
     This function add a line to the billing charge list
@@ -617,6 +622,9 @@ def add_line_to_monthly_charge(
         decimal_precision=decimal_precision,
         description=description,
     )
+    print("*************")
+    print(line)
+    print("*************")
     charges.append(f"{line}\n")
     return charges
 
@@ -734,8 +742,8 @@ def generate_refunds(
     entitlement_termination_date: str | None,
     trial_start_date: date | None,
     trial_end_date: date | None,
-    billing_start_date: datetime | None,
-    billing_end_date: datetime | None,
+    billing_start_date: datetime,
+    billing_end_date: datetime,
 ) -> list[Refund]:
     """
     This function generates a list of refunds for a billing period, considering
