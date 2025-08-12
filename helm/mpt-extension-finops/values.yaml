@@ -1,0 +1,23 @@
+global:
+  AppInsightsConnectionString: ZGVmYXVsdA==
+  ServiceName: default
+  MpPortalBaseUrl: default
+  MpBaseUrl: default
+  MpApiToken: default
+  DjangoSecretKey: ZGVmYXVsdA==
+  MpProductsIds: default
+  WebhookSecretKeys: ZGVmYXVsdA==
+  EmailNotificationsSender: default
+  EmailNotificationsEnabled: default
+  AwsSesCredentials: ZGVmYXVsdA==
+  AwsSesRegion: default
+  FFCOperationsToken: default
+  FFCSub: default
+  FFCOperationsBaseUrl: default
+  MpNotifyCategories: '\{\"ORDERS\": \"NTC-0000-0006\"\}'
+  DefaultBilledPercentage: "4"
+  DefaultTrialPeriodDays: "30"
+  registryUrl: ""
+
+  replicaCountAPI: 1
+  replicaCountWorker: 1
