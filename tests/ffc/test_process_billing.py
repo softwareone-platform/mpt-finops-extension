@@ -16,46 +16,53 @@ from ffc.process_billing import generate_refunds, get_agreement_data
 
 
 @pytest.mark.asyncio()
-async def test_evaluate_journal_status_draft(existing_journal_file, billing_process_instance):
+async def test_evaluate_journal_status_draft(existing_journal_file_response,
+                                             billing_process_instance,caplog):
     """if a journal exists, it should return it as it is"""
     billing_process_instance.mpt_client = AsyncMock()
     billing_process_instance.mpt_client.get_journal = AsyncMock(
-        return_value=existing_journal_file[0]
-    )
-    result = await billing_process_instance.evaluate_journal_status(
-        journal_external_id="202505",
-    )
-    assert result == existing_journal_file[0]
-
-
-@pytest.mark.asyncio()
-async def test_evaluate_journal_status_validated(
-    existing_journal_file, billing_process_instance, caplog
-):
-    """if a journal exists and its status is Validate, it should return the journal as it is"""
-    billing_process_instance.mpt_client = AsyncMock()
-    existing_journal_file[0]["status"] = "Validated"
-    billing_process_instance.mpt_client.get_journal = AsyncMock(
-        return_value=existing_journal_file[0]
+        return_value=existing_journal_file_response[0]
     )
     with caplog.at_level(logging.INFO):
         result = await billing_process_instance.evaluate_journal_status(
             journal_external_id="202505",
         )
-        assert result is existing_journal_file[0]
-    assert "[AUT-5305-9928] Found already validated journal: BJO-9000-4019" in caplog.messages[0]
+        assert result == existing_journal_file_response[0]
+    assert (
+        "[AUT-5305-9928] Already found journal: BJO-9000-4019 with status Draft"
+        in caplog.messages[0]
+    )
+
+
+@pytest.mark.asyncio()
+async def test_evaluate_journal_status_validated(
+        existing_journal_file_response, billing_process_instance, caplog
+):
+    """if a journal exists and its status is Validate, it should return the journal as it is"""
+    billing_process_instance.mpt_client = AsyncMock()
+    existing_journal_file_response[0]["status"] = "Validated"
+    billing_process_instance.mpt_client.get_journal = AsyncMock(
+        return_value=existing_journal_file_response[0]
+    )
+    with caplog.at_level(logging.INFO):
+        result = await billing_process_instance.evaluate_journal_status(
+            journal_external_id="202505",
+        )
+        assert result == existing_journal_file_response[0]
+    assert ("[AUT-5305-9928] Already found journal: BJO-9000-4019 with status Validated"
+            in caplog.messages[0])
 
 
 @pytest.mark.asyncio()
 async def test_evaluate_journal_different_from_draft_and_not_validated(
-    existing_journal_file, billing_process_instance, caplog
+        existing_journal_file_response, billing_process_instance, caplog
 ):
     """if a journal exists and its status is != from Validated or Draft,
     it should raise a JournalStatusError"""
     billing_process_instance.mpt_client = AsyncMock()
-    existing_journal_file[0]["status"] = "Another Status"
+    existing_journal_file_response[0]["status"] = "Another Status"
     billing_process_instance.mpt_client.get_journal = AsyncMock(
-        return_value=existing_journal_file[0]
+        return_value=existing_journal_file_response[0]
     )
     with caplog.at_level(logging.WARNING):
         with pytest.raises(JournalStatusError):
@@ -85,33 +92,33 @@ async def test_evaluate_journal_passing_none(billing_process_instance, caplog):
 # - Test is_journal_validated
 @pytest.mark.asyncio()
 async def test_is_journal_validated_success(
-    billing_process_instance, existing_journal_file, caplog
+    billing_process_instance, existing_journal_file_response, caplog
 ):
     """if the given journal's status  is VALIDATED, it should return True"""
     billing_process_instance.mpt_client = AsyncMock()
-    existing_journal_file[0]["status"] = "Validated"
+    existing_journal_file_response[0]["status"] = "Validated"
     billing_process_instance.mpt_client.get_journal_by_id = AsyncMock(
-        return_value=existing_journal_file[0]
+        return_value=existing_journal_file_response[0]
     )
     result = await billing_process_instance.is_journal_status_validated(
-        journal_id=existing_journal_file[0]["id"]
+        journal_id=existing_journal_file_response[0]["id"]
     )
     assert result is True
 
 
 @pytest.mark.asyncio()
 async def test_is_journal_validated_fail_and_retry(
-    mocker, billing_process_instance, existing_journal_file, caplog
+    mocker, billing_process_instance, existing_journal_file_response, caplog
 ):
     """if the given journal's status  is not VALIDATED,
     the function should retry for a number of 5 attempts and fails if no response is received"""
     billing_process_instance.mpt_client = AsyncMock()
     billing_process_instance.mpt_client.get_journal_by_id = AsyncMock(
-        return_value=existing_journal_file[0]
+        return_value=existing_journal_file_response[0]
     )
     mocker.patch("asyncio.sleep", return_value=None)  # bypass real function's delay
     result = await billing_process_instance.is_journal_status_validated(
-        journal_id=existing_journal_file[0]["id"]
+        journal_id=existing_journal_file_response[0]["id"]
     )
     assert result is False
     assert billing_process_instance.mpt_client.get_journal_by_id.call_count == 5
@@ -200,17 +207,17 @@ async def test_write_charges_file_many_agreements(
     mocker,
     billing_process_instance,
     patch_fetch_organizations,
-    get_agreement_details,
+        agreement_details,
     patch_fetch_organization_expenses,
     caplog,
 ):
     """if many agreements are provided for a given org,
     they will be skipped and no file will be written"""
-    get_agreement_details[0]["authorization"]["id"] = "AUT-5305-9928"
-    get_agreement_details.append(get_agreement_details[0])
+    agreement_details[0]["authorization"]["id"] = "AUT-5305-9928"
+    agreement_details.append(agreement_details[0])
 
     async def agr_mock_generator():
-        for agr in get_agreement_details:
+        for agr in agreement_details:
             yield agr
 
     with caplog.at_level(logging.INFO):
@@ -240,16 +247,16 @@ async def test_write_charges_file_different_auth_id(
     mocker,
     billing_process_instance,
     patch_fetch_organizations,
-    get_agreement_details,
+        agreement_details,
     patch_fetch_organization_expenses,
     caplog,
 ):
     """if the authorization's ID of a given agreement is different from the one defined, those
     agreements will be skipped and no file will be written"""
-    get_agreement_details[0]["authorization"]["id"] = "AUT-5305-9955"
+    agreement_details[0]["authorization"]["id"] = "AUT-5305-9955"
 
     async def agr_mock_generator():
-        for agr in get_agreement_details:
+        for agr in agreement_details:
             yield agr
 
     with caplog.at_level(logging.INFO):
@@ -279,41 +286,41 @@ async def test_write_charges_file_different_auth_id(
 
 @pytest.mark.asyncio()
 async def test_attach_exchange_rates_with_existing_attachment(
-    billing_process_instance, return_journal_attachment, return_create_journal, get_exchange_rate
+    billing_process_instance, journal_attachment_response, create_journal_response, exchange_rates
 ):
     """if a journal already has an attachment, it will be deleted and a new one will be attached."""
     billing_process_instance.mpt_client = AsyncMock()
 
     billing_process_instance.mpt_client.fetch_journal_attachment = AsyncMock(
-        return_value=return_journal_attachment[0]
+        return_value=journal_attachment_response[0]
     )
     billing_process_instance.mpt_client.delete_journal_attachment = AsyncMock(return_value={})
     billing_process_instance.mpt_client.create_journal_attachment = AsyncMock(
-        return_value=return_journal_attachment
+        return_value=journal_attachment_response
     )
 
     result = await billing_process_instance.attach_exchange_rates(
-        journal_id="BJO-9000-4019", currency="EUR", exchange_rates=get_exchange_rate
+        journal_id="BJO-9000-4019", currency="EUR", exchange_rates=exchange_rates
     )
-    assert result == return_journal_attachment
+    assert result == journal_attachment_response
 
 
 @pytest.mark.asyncio()
 async def test_attach_exchange_rates_with_no_existing_attachment(
-    billing_process_instance, return_journal_attachment, return_create_journal, get_exchange_rate
+    billing_process_instance, journal_attachment_response, create_journal_response, exchange_rates
 ):
     """if a journal has no attachment, it will be created and attached."""
     billing_process_instance.mpt_client = AsyncMock()
 
     billing_process_instance.mpt_client.fetch_journal_attachment = AsyncMock(return_value=[])
     billing_process_instance.mpt_client.create_journal_attachment = AsyncMock(
-        return_value=return_journal_attachment
+        return_value=journal_attachment_response
     )
 
     result = await billing_process_instance.attach_exchange_rates(
-        journal_id="BJO-9000-4019", currency="EUR", exchange_rates=get_exchange_rate
+        journal_id="BJO-9000-4019", currency="EUR", exchange_rates=exchange_rates
     )
-    assert result == return_journal_attachment
+    assert result == journal_attachment_response
 
 
 # -------------------------------------------------------------------------------------
@@ -321,24 +328,24 @@ async def test_attach_exchange_rates_with_no_existing_attachment(
 @pytest.mark.asyncio()
 async def test_complete_journal_process_success(
     billing_process_instance,
-    return_create_journal,
-    return_journal_attachment,
+        create_journal_response,
+        journal_attachment_response,
     caplog,
-    get_exchange_rate,
+        exchange_rates,
 ):
     """if a Journal is created successfully, the exchanges_rate_json will be attached and if the
     status of the journal is Validated, the journal will be submitted. None is returned"""
-    return_create_journal["status"] = "Validated"
+    create_journal_response["status"] = "Validated"
     billing_process_instance.mpt_client = AsyncMock()
     billing_process_instance.mpt_client.create_journal = AsyncMock(
-        return_value=return_create_journal
+        return_value=create_journal_response
     )
     billing_process_instance.mpt_client.get_journal_by_id = AsyncMock(
-        return_value=return_create_journal
+        return_value=create_journal_response
     )
     billing_process_instance.mpt_client.upload_charges = AsyncMock(return_value=None)
     billing_process_instance.mpt_client.submit_journal = AsyncMock(return_value=True)
-    billing_process_instance.exchange_rates = get_exchange_rate
+    billing_process_instance.exchange_rates = exchange_rates
     billing_process_instance.mpt_client.attach_exchange_rates = AsyncMock(return_value=None)
     with caplog.at_level(logging.INFO):
         response = await billing_process_instance.complete_journal_process(
@@ -354,9 +361,9 @@ async def test_complete_journal_process_success(
 @pytest.mark.asyncio()
 async def test_complete_journal_process_fail(
     billing_process_instance,
-    return_create_journal,
-    return_journal_attachment,
-    get_exchange_rate,
+        create_journal_response,
+        journal_attachment_response,
+        exchange_rates,
     caplog,
 ):
     """if a Journal is created successfully,
@@ -364,7 +371,7 @@ async def test_complete_journal_process_fail(
     is not validated, it won't be submitted. None is returned"""
     billing_process_instance.mpt_client = AsyncMock()
     billing_process_instance.mpt_client.create_journal = AsyncMock(
-        return_value=return_create_journal
+        return_value=create_journal_response
     )
     billing_process_instance.mpt_client.get_journal_by_id = AsyncMock()
     billing_process_instance.mpt_client.upload_charges = AsyncMock(return_value=None)
@@ -372,14 +379,14 @@ async def test_complete_journal_process_fail(
     billing_process_instance.mpt_client.submit_journal = AsyncMock(return_value=True)
     billing_process_instance.mpt_client.attach_exchange_rates = AsyncMock(return_value=None)
     billing_process_instance.mpt_client.is_journal_validated = AsyncMock(return_value=True)
-    billing_process_instance.exchange_rates = get_exchange_rate
+    billing_process_instance.exchange_rates = exchange_rates
     billing_process_instance.attach_exchange_rates = AsyncMock(
-        return_value=return_journal_attachment
+        return_value=journal_attachment_response
     )
     with caplog.at_level(logging.INFO):
         response = await billing_process_instance.complete_journal_process(
             filepath=f"{tempfile.gettempdir()}/test_generate_charges_file.json",
-            journal=return_create_journal,
+            journal=create_journal_response,
             journal_external_id="BJO-9000-4019",
         )
         assert response is None
@@ -394,10 +401,10 @@ async def test_complete_journal_process_fail(
 
 
 @pytest.mark.asyncio()
-def test_get_agreement_data(get_agreement_with_trial):
+def test_get_agreement_data(agreement_data_with_trial):
     """Providing an agreement, a tuple with trial_start,
     trial_end and billing_percentage will be returned"""
-    trial_start, trial_end, billing_percentage = get_agreement_data(get_agreement_with_trial[0])
+    trial_start, trial_end, billing_percentage = get_agreement_data(agreement_data_with_trial[0])
     assert isinstance(trial_start, date)
     assert isinstance(trial_end, date)
     assert isinstance(billing_percentage, Decimal)
@@ -418,11 +425,11 @@ def test_get_agreement_no_agreement():
 
 @pytest.mark.asyncio()
 async def test_generate_datasource_charges_empty_daily_expenses(
-    billing_process_instance, get_organization
+    billing_process_instance, organization_data
 ):
     """if no daily_expenses are provided, there will be no charges for the given datasource"""
     response = await billing_process_instance.generate_datasource_charges(
-        organization=get_organization,
+        organization=organization_data,
         linked_datasource_id="34654563456",
         linked_datasource_type="AWS",
         datasource_id="1234",
@@ -453,27 +460,27 @@ async def test_generate_datasource_charges_empty_daily_expenses(
 @pytest.mark.asyncio()
 async def test_generate_datasource_charges_with_daily_expenses(
     billing_process_instance,
-    get_organization,
-    get_daily_expenses,
-    get_exchange_rate,
-    get_entitlement,
+        organization_data,
+        daily_expenses,
+        exchange_rates,
+        entitlement,
     caplog,
 ):
     """if there are daily_expenses, charges will be generated for the given datasource"""
     billing_process_instance.exchange_rate_client = AsyncMock()
     billing_process_instance.ffc_client = AsyncMock()
-    billing_process_instance.ffc_client.fetch_entitlement = AsyncMock(return_value=get_entitlement)
+    billing_process_instance.ffc_client.fetch_entitlement = AsyncMock(return_value=entitlement)
     billing_process_instance.exchange_rate_client.fetch_exchange_rates = AsyncMock(
-        return_value=get_exchange_rate
+        return_value=exchange_rates
     )
     with caplog.at_level(logging.INFO):
         response = await billing_process_instance.generate_datasource_charges(
-            organization=get_organization,
+            organization=organization_data,
             linked_datasource_id="34654563456",
             linked_datasource_type="AWS",
             datasource_id="34654563488",
             datasource_name="Test",
-            daily_expenses=get_daily_expenses,
+            daily_expenses=daily_expenses,
             billing_percentage=Decimal("4"),
             trial_start=date(2025, 6, 1),
             trial_end=date(2025, 6, 30),
@@ -499,7 +506,7 @@ async def test_generate_datasource_charges_with_daily_expenses(
            '"value": "FORG-4801-6958-2949"}, '
            '"item": {"criteria": "item.externalIds.vendor", "value": ""}}, '
            '"period": {"start": "2025-06-01", "end": "2025-06-30"}, '
-           '"price": {"unitPP": "-67.6346", "PPx1": "-67.6346"}, '
+           '"price": {"unitPP": "-183.9829", "PPx1": "-183.9829"}, '
            '"quantity": 1, "description": '
            '{"value1": "Test", '
            '"value2": "Refund due to trial period (from 01 Jun 2025 to 30 Jun 2025)"}, '
@@ -509,7 +516,7 @@ async def test_generate_datasource_charges_with_daily_expenses(
         "[AUT-5305-9928] : organization_id='FORG-4801-6958-2949' "
         "linked_datasource_id='34654563456' datasource_name='Test' - "
         "amount=Decimal('5326.0458') billing_percentage=Decimal('4') "
-        "price_in_source_currency=Decimal('213.041832') "
+        "price_in_source_currency=Decimal('213.0418') "
         "exchange_rate=Decimal('0.8636') price_in_target_currency=Decimal('183.98289848')"
         in caplog.messages[0]
     )
@@ -518,28 +525,28 @@ async def test_generate_datasource_charges_with_daily_expenses(
 @pytest.mark.asyncio()
 async def test_generate_datasource_charges_with_price_in_source_currency_eq_0(
     billing_process_instance,
-    get_organization,
-    get_daily_expenses,
-    get_exchange_rate,
-    get_entitlement,
+        organization_data,
+        daily_expenses,
+        exchange_rates,
+        entitlement,
     caplog,
 ):
     """if there are daily_expenses, but no charges, a line will be added to
     the monthly charge file with 0"""
     billing_process_instance.exchange_rate_client = AsyncMock()
     billing_process_instance.ffc_client = AsyncMock()
-    billing_process_instance.ffc_client.fetch_entitlement = AsyncMock(return_value=get_entitlement)
+    billing_process_instance.ffc_client.fetch_entitlement = AsyncMock(return_value=entitlement)
     billing_process_instance.exchange_rate_client.fetch_exchange_rates = AsyncMock(
-        return_value=get_exchange_rate
+        return_value=exchange_rates
     )
     with caplog.at_level(logging.INFO):
         response = await billing_process_instance.generate_datasource_charges(
-            organization=get_organization,
+            organization=organization_data,
             linked_datasource_id="34654563456",
             linked_datasource_type="AWS",
             datasource_id="34654563488",
             datasource_name="Test",
-            daily_expenses=get_daily_expenses,
+            daily_expenses=daily_expenses,
             billing_percentage=Decimal("0"),
             trial_start=date(2025, 6, 1),
             trial_end=date(2025, 6, 30),
@@ -562,10 +569,10 @@ async def test_generate_datasource_charges_with_price_in_source_currency_eq_0(
 @pytest.mark.asyncio()
 async def test_generate_datasource_charges_with_no_entitlement(
     billing_process_instance,
-    get_organization,
-    get_daily_expenses,
-    get_exchange_rate,
-    get_entitlement,
+        organization_data,
+        daily_expenses,
+        exchange_rates,
+        entitlement,
     caplog,
 ):
     """if there are no entitlements, the function still writes the existing charges for the
@@ -574,16 +581,16 @@ async def test_generate_datasource_charges_with_no_entitlement(
     billing_process_instance.ffc_client = AsyncMock()
     billing_process_instance.ffc_client.fetch_entitlement = AsyncMock(return_value=None)
     billing_process_instance.exchange_rate_client.fetch_exchange_rates = AsyncMock(
-        return_value=get_exchange_rate
+        return_value=exchange_rates
     )
     with caplog.at_level(logging.INFO):
         response = await billing_process_instance.generate_datasource_charges(
-            organization=get_organization,
+            organization=organization_data,
             linked_datasource_id="34654563456",
             linked_datasource_type="AWS",
             datasource_id="34654563488",
             datasource_name="Test",
-            daily_expenses=get_daily_expenses,
+            daily_expenses=daily_expenses,
             billing_percentage=Decimal("4"),
             trial_start=date(2025, 6, 1),
             trial_end=date(2025, 6, 15),
@@ -608,7 +615,7 @@ async def test_generate_datasource_charges_with_no_entitlement(
         '"value": "FORG-4801-6958-2949"}, '
            '"item": {"criteria": "item.externalIds.vendor", "value": ""}},'
         ' "period": {"start": "2025-06-01", "end": "2025-06-15"}, '
-        '"price": {"unitPP": "-67.6346", "PPx1": "-67.6346"}, '
+        '"price": {"unitPP": "-39.1447", "PPx1": "-39.1447"}, '
         '"quantity": 1, '
            '"description": {"value1": "Test", '
            '"value2": "Refund due to trial period (from 01 Jun 2025 to 15 Jun 2025)"},'
@@ -623,39 +630,39 @@ async def test_generate_datasource_charges_with_no_entitlement(
 @pytest.mark.asyncio()
 async def test_get_currency_conversion_info_needed(
     billing_process_instance,
-    get_organization,
-    get_exchange_rate,
+        organization_data,
+        exchange_rates,
     caplog,
-    get_currency_conversion_info,
+        currency_conversion,
 ):
     """if the billing currency is different from the base currency, the function
     will fetch the exchange rates for the conversion"""
     billing_process_instance.exchange_rate_client = AsyncMock()
     billing_process_instance.exchange_rate_client.fetch_exchange_rates = AsyncMock(
-        return_value=get_exchange_rate
+        return_value=exchange_rates
     )
     with caplog.at_level(logging.INFO):
         result = await billing_process_instance.get_currency_conversion_info(
-            organization=get_organization,
+            organization=organization_data,
         )
         assert isinstance(result, CurrencyConversionInfo)
-        assert result.__dict__ == get_currency_conversion_info
+        assert result.__dict__ == currency_conversion
 
 
 @pytest.mark.asyncio()
 async def test_get_currency_conversion_info_no_needed(
-    billing_process_instance, get_organization, get_exchange_rate, caplog
+    billing_process_instance, organization_data, exchange_rates, caplog
 ):
     """if the billing currency is the same as the base currency, no conversion is needed."""
-    get_organization["billing_currency"] = "USD"
+    organization_data["billing_currency"] = "USD"
 
     billing_process_instance.exchange_rate_client = AsyncMock()
     billing_process_instance.exchange_rate_client.fetch_exchange_rates = AsyncMock(
-        return_value=get_exchange_rate
+        return_value=exchange_rates
     )
     with caplog.at_level(logging.INFO):
         result = await billing_process_instance.get_currency_conversion_info(
-            organization=get_organization,
+            organization=organization_data,
         )
         assert isinstance(result, CurrencyConversionInfo)
     assert (
@@ -667,16 +674,16 @@ async def test_get_currency_conversion_info_no_needed(
 
 @pytest.mark.asyncio()
 async def test_check_if_rate_conversion_client_error(
-    billing_process_instance, get_organization, caplog
+    billing_process_instance, organization_data, caplog
 ):
     """if an error occurs fetching the conversion info, an error message will be printed."""
-    get_organization["billing_currency"] = "EUR"
+    organization_data["billing_currency"] = "EUR"
     billing_process_instance.exchange_rate_client.fetch_exchange_rates = AsyncMock(return_value={})
 
     with caplog.at_level(logging.ERROR):
         with pytest.raises(ExchangeRatesClientError):
             await billing_process_instance.get_currency_conversion_info(
-                organization=get_organization
+                organization=organization_data
             )
     assert (
         "[AUT-5305-9928] An error occurred while fetching exchange rates for USD"
@@ -687,11 +694,11 @@ async def test_check_if_rate_conversion_client_error(
 # -----------------------------------------------------------------------------------
 # - Test generate_refunds()
 @pytest.mark.asyncio()
-def test_generate_refunds_success(get_daily_expenses):
+def test_generate_refunds_success(daily_expenses):
     """if there are a  trial and an entitlements active, a refund will be generated.
     Trials get priority over entitlements if the periods overlap."""
     response = generate_refunds(
-        daily_expenses=get_daily_expenses,
+        daily_expenses=daily_expenses,
         entitlement_id="FENT-2502-5308-4600",
         entitlement_start_date="2025-06-01T08:22:44.126636Z",
         entitlement_termination_date="2025-06-10T08:22:44.126636Z",
@@ -708,11 +715,11 @@ def test_generate_refunds_success(get_daily_expenses):
 
 
 @pytest.mark.asyncio()
-def test_generate_refunds_success_trial_and_entitlements(get_daily_expenses):
+def test_generate_refunds_success_trial_and_entitlements(daily_expenses):
     """if there are a  trial and an entitlements active, a refund will be generated.
     Trials get priority over entitlements if the periods overlap."""
     response = generate_refunds(
-        daily_expenses=get_daily_expenses,
+        daily_expenses=daily_expenses,
         entitlement_id="FENT-2502-5308-4600",
         entitlement_start_date="2025-06-01T08:22:44.126636Z",
         entitlement_termination_date="2025-06-30T08:22:44.126636Z",
@@ -731,10 +738,10 @@ def test_generate_refunds_success_trial_and_entitlements(get_daily_expenses):
     assert response[1].end_date == date(2025, 6, 29)
 
 
-def test_generate_refunds_no_trial_days(get_daily_expenses):
+def test_generate_refunds_no_trial_days(daily_expenses):
     """if only an entitlement is active, there will be a refund for that period."""
     response = generate_refunds(
-        daily_expenses=get_daily_expenses,
+        daily_expenses=daily_expenses,
         entitlement_id="FENT-2502-5308-4600",
         entitlement_start_date="2025-06-01T08:22:44.126636Z",
         entitlement_termination_date="2025-06-30T08:22:44.126636Z",
@@ -750,10 +757,10 @@ def test_generate_refunds_no_trial_days(get_daily_expenses):
     assert response[0].end_date == date(2025, 6, 29)
 
 
-def test_generate_refunds_no_trial_days_no_entitlement_days(get_daily_expenses):
+def test_generate_refunds_no_trial_days_no_entitlement_days(daily_expenses):
     """if there are no trials and no entitlements active, there will be no refund."""
     response = generate_refunds(
-        daily_expenses=get_daily_expenses,
+        daily_expenses=daily_expenses,
         entitlement_id="FENT-2502-5308-4600",
         entitlement_start_date="",
         entitlement_termination_date="",
@@ -766,12 +773,12 @@ def test_generate_refunds_no_trial_days_no_entitlement_days(get_daily_expenses):
     assert len(response) == 0
 
 
-def test_generate_refunds_no_entitlement_end_date(get_daily_expenses):
+def test_generate_refunds_no_entitlement_end_date(daily_expenses):
     """if there is only a trial period and the entitlement_termination_date is missing,
     the billing date will be used as value for calculating the refund. The Trials get priority over
     entitlements."""
     response = generate_refunds(
-        daily_expenses=get_daily_expenses,
+        daily_expenses=daily_expenses,
         entitlement_id="FENT-2502-5308-4600",
         entitlement_start_date="2025-06-01T08:22:44.126636Z",
         entitlement_termination_date="",
@@ -807,13 +814,13 @@ async def test_process_no_count_active_agreements(billing_process_instance, capl
 
 
 @pytest.mark.asyncio()
-async def test_process_success(billing_process_instance, existing_journal_file):
+async def test_process_success(billing_process_instance, existing_journal_file_response):
     """if the process completed successfully, all the function are called once."""
     billing_process_instance.mpt_client = AsyncMock()
     billing_process_instance.mpt_client.count_active_agreements = AsyncMock(return_value=2)
     billing_process_instance.write_charges_file = AsyncMock(return_value=True)
     billing_process_instance.mpt_client.get_journal = AsyncMock(
-        return_value=existing_journal_file[0]
+        return_value=existing_journal_file_response[0]
     )
     billing_process_instance.complete_journal_process = AsyncMock(return_value=None)
     await billing_process_instance.process()
@@ -824,13 +831,13 @@ async def test_process_success(billing_process_instance, existing_journal_file):
 
 
 @pytest.mark.asyncio()
-async def test_process_no_charges_written(billing_process_instance, existing_journal_file):
+async def test_process_no_charges_written(billing_process_instance, existing_journal_file_response):
     """if no charges files are written, the complete_journal_process won't be called."""
     billing_process_instance.mpt_client = AsyncMock()
     billing_process_instance.mpt_client.count_active_agreements = AsyncMock(return_value=2)
     billing_process_instance.write_charges_file = AsyncMock(return_value=False)
     billing_process_instance.mpt_client.get_journal = AsyncMock(
-        return_value=existing_journal_file[0]
+        return_value=existing_journal_file_response[0]
     )
     billing_process_instance.complete_journal_process = AsyncMock(return_value=None)
     await billing_process_instance.process()
@@ -932,7 +939,7 @@ async def test_acquire_semaphore_acquires_and_releases(billing_process_instance)
     async with billing_process_instance.acquire_semaphore():
         await inner()
 
-    semaphore.release.assert_awaited_once()
+    semaphore.release.assert_called_once()
 
 
 # -----------------------------------------------------------------------------------
