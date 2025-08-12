@@ -187,13 +187,11 @@ class AuthorizationProcessor:
         journal_id = journal["id"]
         journal_status = journal["status"]
         if journal_status in (VALIDATED, DRAFT):
+            self.logger.info(f"Already found journal: {journal_id} with status {journal_status}")
             return journal
-        if journal_status == VALIDATED:
-            self.logger.info(f"Found already validated journal: {journal_id}")
-            return journal
-        elif journal_status != DRAFT:
+        else:
             self.logger.warning(f"Found the journal {journal_id} with status {journal_status}")
-        raise JournalStatusError()
+            raise JournalStatusError()
 
 
     async def process(self):
@@ -469,7 +467,6 @@ class AuthorizationProcessor:
         ).quantize(self.DECIMAL_PRECISION)
         idx = 1
         if price_in_source_currency == Decimal(0):
-            self.logger.info(f"****** {price_in_source_currency}: {price_in_source_currency == 0} *****")
             return add_line_to_monthly_charge(
                 vendor_external_id=f"{linked_datasource_id}-{idx:02d}",
                 datasource_id=datasource_id,
@@ -508,7 +505,7 @@ class AuthorizationProcessor:
             f"{amount=} {billing_percentage=} {price_in_source_currency=} "
             f"{exchange_rate=} {price_in_target_currency=}"
         )
-        # Generate charge with total monthly spending. positive line e ne esiste una per un certo ds
+        # Generate charge with total monthly spending. positive line
         charges = add_line_to_monthly_charge(
             vendor_external_id=f"{linked_datasource_id}-{idx:02d}",
             datasource_id=datasource_id,
@@ -622,9 +619,7 @@ def add_line_to_monthly_charge(
         decimal_precision=decimal_precision,
         description=description,
     )
-    print("*************")
     print(line)
-    print("*************")
     charges.append(f"{line}\n")
     return charges
 

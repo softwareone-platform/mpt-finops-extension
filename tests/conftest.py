@@ -750,7 +750,7 @@ def ffc_organization():
 
 
 @pytest.fixture()
-def get_entitlement():
+def entitlement():
     return {
         "items": [
             {
@@ -1088,7 +1088,7 @@ def get_entitlement():
 
 
 @pytest.fixture()
-def get_expenses():
+def expenses():
     return [
         {
             "events": {
@@ -1454,7 +1454,7 @@ def get_expenses():
 
 
 @pytest.fixture()
-def get_daily_expenses():
+def daily_expenses():
     return {
         1: Decimal("1957.9254"),
         2: Decimal("3233.8422"),
@@ -1522,7 +1522,7 @@ def authorization_process_result():
 
 
 @pytest.fixture()
-def return_create_journal():
+def create_journal_response():
     return {
         "$meta": {
             "omitted": ["processing"],
@@ -1586,7 +1586,7 @@ def return_create_journal():
 
 
 @pytest.fixture()
-def existing_journal_file():
+def existing_journal_file_response():
     return [
         {
             "id": "BJO-9000-4019",
@@ -1638,7 +1638,7 @@ def existing_journal_file():
 
 
 @pytest.fixture()
-def return_journal_attachment():
+def journal_attachment_response():
     return [
         {
             "id": "JOA-5985-1983",
@@ -1666,7 +1666,7 @@ def return_journal_attachment():
 
 
 @pytest.fixture()
-def get_agreement_with_trial():
+def agreement_data_with_trial():
     return [
         {
             "id": "AGR-4528-5004-9617",
@@ -1794,7 +1794,7 @@ def get_agreement_with_trial():
 
 
 @pytest.fixture()
-def get_organization():
+def organization_data():
     return {
         "name": "SoftwareOne (Test Environment)",
         "currency": "USD",
@@ -1825,7 +1825,7 @@ def get_organization():
 
 
 @pytest.fixture()
-def get_agreement_details():
+def agreement_details():
     return [
         {
             "id": "AGR-4985-4034-6503",
@@ -1938,7 +1938,7 @@ def get_agreement_details():
 
 
 @pytest.fixture()
-def get_currency_conversion_info():
+def currency_conversion():
     return {
         "base_currency": "USD",
         "billing_currency": "EUR",
@@ -2122,7 +2122,7 @@ def get_currency_conversion_info():
 
 
 @pytest.fixture()
-def get_exchange_rate():
+def exchange_rates():
     return {
         "result": "success",
         "documentation": "https://www.exchangerate-api.com/docs",
@@ -2321,27 +2321,27 @@ def org_mock_generator_agr_000(get_organizations):
 
 
 @pytest.fixture()
-def agr_mock_generator(get_agreement_details):
+def agr_mock_generator(agreement_details):
     async def _gen():
-        for agr in get_agreement_details:
+        for agr in agreement_details:
             yield agr
 
     return _gen()
 
 
 @pytest.fixture()
-def agr_mock_generator_with_trial(get_agreement_with_trial):
+def agr_mock_generator_with_trial(agreement_data_with_trial):
     async def _gen():
-        for agr in get_agreement_with_trial:
+        for agr in agreement_data_with_trial:
             yield agr
 
     return _gen()
 
 
 @pytest.fixture()
-def exp_mock_generator(get_expenses):
+def exp_mock_generator(expenses):
     async def _gen():
-        for exp in get_expenses:
+        for exp in expenses:
             yield exp
 
     return _gen()
