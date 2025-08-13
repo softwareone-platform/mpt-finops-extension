@@ -67,9 +67,12 @@ class MPTAsyncClient(BaseAsyncAPIClient, PaginationSupportMixin):
         end_date: datetime,
     ):
         rql = (
+            "and("
+            f"eq(authorization.id,{authorization_id}),"
             "or("
-            f"and(eq(authorization.id,{authorization_id}),eq(status,Active),le(audit.active.at,{fmtd(end_date)})),"
-            f"and(eq(status,Terminated),le(audit.terminated.at,{fmtd(end_date)}),ge(audit.terminated.at,{fmtd(start_date)}))"
+            f"and(eq(status,'Active'),le(audit.active.at,{fmtd(end_date)})),"
+            f"and(eq(status,'Terminated'),le(audit.terminated.at,{fmtd(end_date)}),ge(audit.terminated.at,{fmtd(start_date)}))"
+            ")"
             ")"
         )
 
