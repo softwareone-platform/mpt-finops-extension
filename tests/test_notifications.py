@@ -2,12 +2,12 @@ import logging
 
 import pymsteams
 import pytest
-from mpt_extension_sdk.mpt_http.mpt import NotifyCategories
 
 from ffc.flows.order import OrderContext
 from ffc.notifications import (
     Button,
     FactsSection,
+    NotifyCategories,
     dateformat,
     mpt_notify,
     notify_unhandled_exception_in_teams,

@@ -538,7 +538,7 @@ class AuthorizationProcessor:
             or {}
         )
         ent_events = entitlement.get("events", {})
-        calculate_entitlement_refund_lines(
+        self.calculate_entitlement_refund_lines(
             daily_expenses=daily_expenses,
             entitlement_id=entitlement.get("id"),
             entitlement_start_date=ent_events.get("redeemed", {}).get("at"),
@@ -546,8 +546,6 @@ class AuthorizationProcessor:
             trial_start_date=trial_start,
             trial_end_date=trial_end,
             billing_percentage=billing_percentage,
-            billing_start_date=self.billing_start_date,
-            billing_end_date=self.billing_end_date,
             exchange_rate=exchange_rate,
             decimal_precision=self.DECIMAL_PRECISION,
             charges=charges,
@@ -568,6 +566,168 @@ class AuthorizationProcessor:
             await asyncio.sleep(backoff_times[attempt])
 
         return False
+
+    def generate_refunds(
+        self,
+        daily_expenses: dict[int, Decimal],
+        entitlement_id: str | None,
+        entitlement_start_date: str | None,
+        entitlement_termination_date: str | None,
+        trial_start_date: date | None,
+        trial_end_date: date | None,
+    ) -> list[Refund]:
+        """
+        This function generates a list of refunds for a billing period, considering
+        the trials and entitlements period. Trials get priority over Entitlements
+        """
+        refund_lines = []
+        trial_days = set()
+        entitlement_days = set()
+
+        trial_refund_from = None
+        trial_refund_to = None
+        if trial_start_date and trial_end_date:
+            # Trial period can start or end on month other than billing month period.
+            # In this situation, we need to limit refunded expenses
+            # to a period overlapping with billing month.
+            # Example, billing month is June 1-30, a trial period is May 17 - June 17
+            # We need to refund expenses from June 1st to June 17th
+            trial_refund_from = max(trial_start_date, self.billing_start_date.date())
+            trial_refund_to = min(trial_end_date, self.billing_end_date.date())
+            trial_days = {
+                dt.date().day
+                for dt in rrule(
+                    DAILY,
+                    dtstart=trial_refund_from,
+                    until=trial_refund_to,
+                )
+            }
+
+        if entitlement_start_date:
+            if entitlement_termination_date:
+                entitlement_termination = datetime.fromisoformat(
+                    entitlement_termination_date,
+                )
+            else:
+                entitlement_termination = self.billing_end_date
+            entitlement_days = {
+                dt.date().day
+                for dt in rrule(
+                    DAILY,
+                    dtstart=max(
+                        datetime.fromisoformat(entitlement_start_date), self.billing_start_date
+                    ),
+                    until=min(
+                        entitlement_termination,
+                        self.billing_end_date,
+                    ),
+                )
+                if dt.date().day not in trial_days
+            }
+
+        if trial_days:
+            trial_amount = sum(daily_expenses.get(day, Decimal("0")) for day in trial_days)
+
+            refund_lines.append(
+                Refund(
+                    trial_amount,
+                    trial_refund_from,
+                    trial_refund_to,
+                    (
+                        "Refund due to trial period "
+                        f"(from {trial_start_date.strftime("%d %b %Y")} "  # type: ignore
+                        f"to {trial_end_date.strftime("%d %b %Y")})"  # type: ignore
+                    ),
+                )
+            )
+
+        if entitlement_days:
+            sorted_days = sorted(entitlement_days)
+            ranges = []
+            start = prev = sorted_days[0]
+            for d in sorted_days[1:]:
+                if d == prev + 1:
+                    prev = d
+                else:  # pragma no cover
+                    # todo investigate how to test this case
+                    ranges.append((start, prev))
+                    start = prev = d
+            ranges.append((start, prev))
+
+            for r_start, r_end in ranges:
+                ent_amount = sum(daily_expenses.get(day, 0) for day in range(r_start, r_end + 1))
+
+                refund_lines.append(
+                    Refund(
+                        ent_amount,
+                        date(
+                            self.billing_start_date.year,
+                            self.billing_start_date.month,
+                            r_start,
+                        ),
+                        date(
+                            self.billing_start_date.year,
+                            self.billing_start_date.month,
+                            r_end,
+                        ),
+                        f"Refund due to active entitlement {entitlement_id}",
+                    )
+                )
+
+        return refund_lines
+
+    def calculate_entitlement_refund_lines(
+        self,
+        daily_expenses: dict[int, Decimal],
+        entitlement_id: str | None,
+        entitlement_start_date: str | None,
+        entitlement_termination_date: str | None,
+        trial_start_date: date | None,
+        trial_end_date: date | None,
+        billing_percentage: Decimal,
+        exchange_rate: Decimal,
+        decimal_precision: Decimal,
+        charges: list,
+        organization_id: str,
+        linked_datasource_id: str,
+        datasource_id: str,
+        datasource_name: str,
+    ):
+        """
+        This function calculates the entitlement refund lines for a billing period
+        """
+        idx = 2
+        refunds = self.generate_refunds(
+            daily_expenses=daily_expenses,
+            entitlement_id=entitlement_id,
+            entitlement_start_date=entitlement_start_date,
+            entitlement_termination_date=entitlement_termination_date,
+            trial_start_date=trial_start_date,
+            trial_end_date=trial_end_date,
+        )
+        for refund in refunds:
+            expenses = Decimal(refund.amount)
+            refund_in_source_currency = (
+                expenses.quantize(decimal_precision)
+                * billing_percentage.quantize(decimal_precision)
+                / Decimal(100).quantize(decimal_precision)
+            )
+            refund_in_target_currency = refund_in_source_currency * exchange_rate.quantize(
+                decimal_precision
+            )
+            add_line_to_monthly_charge(
+                vendor_external_id=f"{linked_datasource_id}-{idx:02d}",
+                datasource_id=datasource_id,
+                organization_id=organization_id,
+                start_date=refund.start_date,
+                end_date=refund.end_date,
+                price=-refund_in_target_currency,
+                datasource_name=datasource_name,
+                decimal_precision=decimal_precision,
+                description=refund.description,
+                charges=charges,
+            )
+            idx += 1
 
 
 def get_agreement_data(
@@ -673,167 +833,5 @@ def generate_charge_line(
     )
 
 
-def calculate_entitlement_refund_lines(
-    daily_expenses: dict[int, Decimal],
-    entitlement_id: str | None,
-    entitlement_start_date: str | None,
-    entitlement_termination_date: str | None,
-    trial_start_date: date | None,
-    trial_end_date: date | None,
-    billing_start_date: datetime | None,
-    billing_end_date: datetime | None,
-    billing_percentage: Decimal,
-    exchange_rate: Decimal,
-    decimal_precision: Decimal,
-    charges: list,
-    organization_id: str,
-    linked_datasource_id: str,
-    datasource_id: str,
-    datasource_name: str,
-):
-    """
-    This function calculates the entitlement refund lines for a billing period
-    """
-    idx = 2
-    refunds = generate_refunds(
-        daily_expenses=daily_expenses,
-        entitlement_id=entitlement_id,
-        entitlement_start_date=entitlement_start_date,
-        entitlement_termination_date=entitlement_termination_date,
-        trial_start_date=trial_start_date,
-        trial_end_date=trial_end_date,
-        billing_start_date=billing_start_date,
-        billing_end_date=billing_end_date,
-    )
-    for refund in refunds:
-        expenses = Decimal(refund.amount)
-        refund_in_source_currency = (
-            expenses.quantize(decimal_precision)
-            * billing_percentage.quantize(decimal_precision)
-            / Decimal(100).quantize(decimal_precision)
-        )
-        refund_in_target_currency = refund_in_source_currency * exchange_rate.quantize(
-            decimal_precision
-        )
-        add_line_to_monthly_charge(
-            vendor_external_id=f"{linked_datasource_id}-{idx:02d}",
-            datasource_id=datasource_id,
-            organization_id=organization_id,
-            start_date=refund.start_date,
-            end_date=refund.end_date,
-            price=-refund_in_target_currency,
-            datasource_name=datasource_name,
-            decimal_precision=decimal_precision,
-            description=refund.description,
-            charges=charges,
-        )
-        idx += 1
 
 
-def generate_refunds(
-    daily_expenses: dict[int, Decimal],
-    entitlement_id: str | None,
-    entitlement_start_date: str | None,
-    entitlement_termination_date: str | None,
-    trial_start_date: date | None,
-    trial_end_date: date | None,
-    billing_start_date: datetime,
-    billing_end_date: datetime,
-) -> list[Refund]:
-    """
-    This function generates a list of refunds for a billing period, considering
-    the trials and entitlements period. Trials get priority over Entitlements
-    """
-    refund_lines = []
-    trial_days = set()
-    entitlement_days = set()
-
-    trial_refund_from = None
-    trial_refund_to = None
-    if trial_start_date and trial_end_date:
-        # Trial period can start or end on month other than billing month period.
-        # In this situation, we need to limit refunded expenses
-        # to a period overlapping with billing month.
-        # Example, billing month is June 1-30, a trial period is May 17 - June 17
-        # We need to refund expenses from June 1st to June 17th
-        trial_refund_from = max(trial_start_date, billing_start_date.date())
-        trial_refund_to = min(trial_end_date, billing_end_date.date())
-        trial_days = {
-            dt.date().day
-            for dt in rrule(
-                DAILY,
-                dtstart=trial_refund_from,
-                until=trial_refund_to,
-            )
-        }
-
-    if entitlement_start_date:
-        if entitlement_termination_date:
-            entitlement_termination = datetime.fromisoformat(
-                entitlement_termination_date,
-            )
-        else:
-            entitlement_termination = billing_end_date
-        entitlement_days = {
-            dt.date().day
-            for dt in rrule(
-                DAILY,
-                dtstart=max(datetime.fromisoformat(entitlement_start_date), billing_start_date),
-                until=min(
-                    entitlement_termination,
-                    billing_end_date,
-                ),
-            )
-            if dt.date().day not in trial_days
-        }
-
-    if trial_days:
-        trial_amount = sum(daily_expenses.get(day, Decimal("0")) for day in trial_days)
-
-        refund_lines.append(
-            Refund(
-                trial_amount,
-                trial_refund_from,
-                trial_refund_to,
-                (
-                    "Refund due to trial period "
-                    f"(from {trial_start_date.strftime("%d %b %Y")} "  # type: ignore
-                    f"to {trial_end_date.strftime("%d %b %Y")})"  # type: ignore
-                ),
-            )
-        )
-
-    if entitlement_days:
-        sorted_days = sorted(entitlement_days)
-        ranges = []
-        start = prev = sorted_days[0]
-        for d in sorted_days[1:]:
-            if d == prev + 1:
-                prev = d
-            else:  # pragma no cover
-                # todo investigate how to test this case
-                ranges.append((start, prev))
-                start = prev = d
-        ranges.append((start, prev))
-
-        for r_start, r_end in ranges:
-            ent_amount = sum(daily_expenses.get(day, 0) for day in range(r_start, r_end + 1))
-
-            refund_lines.append(
-                Refund(
-                    ent_amount,
-                    date(
-                        billing_start_date.year,
-                        billing_start_date.month,
-                        r_start,
-                    ),
-                    date(
-                        billing_start_date.year,
-                        billing_start_date.month,
-                        r_end,
-                    ),
-                    f"Refund due to active entitlement {entitlement_id}",
-                )
-            )
-
-    return refund_lines

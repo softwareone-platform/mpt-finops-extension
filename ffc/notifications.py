@@ -3,18 +3,20 @@ import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
 
 import pymsteams
 from django.conf import settings
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from markdown_it import MarkdownIt
 from mpt_extension_sdk.mpt_http.base import MPTClient
-from mpt_extension_sdk.mpt_http.mpt import NotifyCategories, get_rendered_template, notify
+from mpt_extension_sdk.mpt_http.mpt import get_rendered_template, notify
 
 from ffc.flows.order import OrderContext
 from ffc.parameters import PARAM_CONTACT, get_ordering_parameter
 
 logger = logging.getLogger(__name__)
+NotifyCategories = Enum("NotifyCategories", settings.MPT_NOTIFY_CATEGORIES)
 
 
 def dateformat(date_string):

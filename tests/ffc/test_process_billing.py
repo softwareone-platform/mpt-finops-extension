@@ -1,7 +1,7 @@
 import json
 import logging
 import tempfile
-from datetime import date, datetime, timezone
+from datetime import date
 from decimal import Decimal
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -10,7 +10,7 @@ import pytest
 
 from ffc.billing.dataclasses import AuthorizationProcessResult, CurrencyConversionInfo, Refund
 from ffc.billing.exceptions import ExchangeRatesClientError, JournalStatusError
-from ffc.process_billing import generate_refunds, get_agreement_data
+from ffc.process_billing import get_agreement_data
 
 # - test evaluate_journal_status()
 
@@ -399,8 +399,6 @@ async def test_complete_journal_process_fail(
 # --------------------------------------------------------------------------------------------
 # - Test get_agreement_data()
 
-
-@pytest.mark.asyncio()
 def test_get_agreement_data(agreement_data_with_trial):
     """Providing an agreement, a tuple with trial_start,
     trial_end and billing_percentage will be returned"""
@@ -409,8 +407,6 @@ def test_get_agreement_data(agreement_data_with_trial):
     assert isinstance(trial_end, date)
     assert isinstance(billing_percentage, Decimal)
 
-
-@pytest.mark.asyncio()
 def test_get_agreement_no_agreement():
     """If no agreement is provided, the trial_start and trial_end date will be None"""
     trial_start, trial_end, billing_percentage = get_agreement_data(None)
@@ -694,18 +690,16 @@ async def test_check_if_rate_conversion_client_error(
 # -----------------------------------------------------------------------------------
 # - Test generate_refunds()
 @pytest.mark.asyncio()
-def test_generate_refunds_success(daily_expenses):
+def test_generate_refunds_success(daily_expenses,billing_process_instance):
     """if there are a  trial and an entitlements active, a refund will be generated.
     Trials get priority over entitlements if the periods overlap."""
-    response = generate_refunds(
+    response = billing_process_instance.generate_refunds(
         daily_expenses=daily_expenses,
         entitlement_id="FENT-2502-5308-4600",
         entitlement_start_date="2025-06-01T08:22:44.126636Z",
         entitlement_termination_date="2025-06-10T08:22:44.126636Z",
         trial_start_date=date(2025, 6, 1),
         trial_end_date=date(2025, 6, 15),
-        billing_start_date=datetime(2025, 6, 1, tzinfo=timezone.utc),
-        billing_end_date=datetime(2025, 6, 30, tzinfo=timezone.utc),
     )
     assert isinstance(response, list)
     assert isinstance(response[0], Refund)
@@ -715,18 +709,16 @@ def test_generate_refunds_success(daily_expenses):
 
 
 @pytest.mark.asyncio()
-def test_generate_refunds_success_trial_and_entitlements(daily_expenses):
+def test_generate_refunds_success_trial_and_entitlements(daily_expenses,billing_process_instance):
     """if there are a  trial and an entitlements active, a refund will be generated.
     Trials get priority over entitlements if the periods overlap."""
-    response = generate_refunds(
+    response = billing_process_instance.generate_refunds(
         daily_expenses=daily_expenses,
         entitlement_id="FENT-2502-5308-4600",
         entitlement_start_date="2025-06-01T08:22:44.126636Z",
         entitlement_termination_date="2025-06-30T08:22:44.126636Z",
         trial_start_date=date(2025, 6, 1),
         trial_end_date=date(2025, 6, 15),
-        billing_start_date=datetime(2025, 6, 1, tzinfo=timezone.utc),
-        billing_end_date=datetime(2025, 6, 30, tzinfo=timezone.utc),
     )
     assert isinstance(response, list)
     assert isinstance(response[0], Refund)
@@ -738,17 +730,15 @@ def test_generate_refunds_success_trial_and_entitlements(daily_expenses):
     assert response[1].end_date == date(2025, 6, 29)
 
 
-def test_generate_refunds_no_trial_days(daily_expenses):
+def test_generate_refunds_no_trial_days(daily_expenses,billing_process_instance):
     """if only an entitlement is active, there will be a refund for that period."""
-    response = generate_refunds(
+    response = billing_process_instance.generate_refunds(
         daily_expenses=daily_expenses,
         entitlement_id="FENT-2502-5308-4600",
         entitlement_start_date="2025-06-01T08:22:44.126636Z",
         entitlement_termination_date="2025-06-30T08:22:44.126636Z",
         trial_start_date=None,
         trial_end_date=None,
-        billing_start_date=datetime(2025, 6, 1, tzinfo=timezone.utc),
-        billing_end_date=datetime(2025, 6, 30, tzinfo=timezone.utc),
     )
     assert isinstance(response, list)
     assert isinstance(response[0], Refund)
@@ -757,35 +747,32 @@ def test_generate_refunds_no_trial_days(daily_expenses):
     assert response[0].end_date == date(2025, 6, 29)
 
 
-def test_generate_refunds_no_trial_days_no_entitlement_days(daily_expenses):
+def test_generate_refunds_no_trial_days_no_entitlement_days(daily_expenses,
+                                                            billing_process_instance):
     """if there are no trials and no entitlements active, there will be no refund."""
-    response = generate_refunds(
+    response = billing_process_instance.generate_refunds(
         daily_expenses=daily_expenses,
         entitlement_id="FENT-2502-5308-4600",
         entitlement_start_date="",
         entitlement_termination_date="",
         trial_start_date=None,
         trial_end_date=None,
-        billing_start_date=datetime(2025, 6, 1, tzinfo=timezone.utc),
-        billing_end_date=datetime(2025, 6, 30, tzinfo=timezone.utc),
     )
     assert isinstance(response, list)
     assert len(response) == 0
 
 
-def test_generate_refunds_no_entitlement_end_date(daily_expenses):
+def test_generate_refunds_no_entitlement_end_date(daily_expenses,billing_process_instance):
     """if there is only a trial period and the entitlement_termination_date is missing,
     the billing date will be used as value for calculating the refund. The Trials get priority over
     entitlements."""
-    response = generate_refunds(
+    response = billing_process_instance.generate_refunds(
         daily_expenses=daily_expenses,
         entitlement_id="FENT-2502-5308-4600",
         entitlement_start_date="2025-06-01T08:22:44.126636Z",
         entitlement_termination_date="",
         trial_start_date=date(2025, 6, 1),
         trial_end_date=date(2025, 6, 15),
-        billing_start_date=datetime(2025, 6, 1, tzinfo=timezone.utc),
-        billing_end_date=datetime(2025, 6, 30, tzinfo=timezone.utc),
     )
     assert isinstance(response, list)
     assert isinstance(response[0], Refund)
