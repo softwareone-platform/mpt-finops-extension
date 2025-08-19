@@ -4,15 +4,16 @@ from functools import cached_property
 import httpx
 from httpx_retries import Retry, RetryTransport
 
+NOT_IMPLEMENTED_ERROR="base_url property must be implemented in subclasses"
 
 class PaginationSupportMixin(ABC):
     @abstractmethod
     def get_pagination_meta(self, response):
-        raise NotImplementedError("base_url property must be implemented in subclasses")
+        raise NotImplementedError(NOT_IMPLEMENTED_ERROR)
 
     @abstractmethod
     def get_page_data(self, response):
-        raise NotImplementedError("base_url property must be implemented in subclasses")
+        raise NotImplementedError(NOT_IMPLEMENTED_ERROR)
 
 
 class BaseAsyncAPIClient(ABC):
@@ -23,12 +24,12 @@ class BaseAsyncAPIClient(ABC):
     @property
     @abstractmethod
     def base_url(self):
-        raise NotImplementedError("base_url property must be implemented in subclasses")
+        raise NotImplementedError(NOT_IMPLEMENTED_ERROR)
 
     @property
     @abstractmethod
     def auth(self):
-        raise NotImplementedError("base_url property must be implemented in subclasses")
+        raise NotImplementedError(NOT_IMPLEMENTED_ERROR)
 
     @cached_property
     def httpx_client(self) -> httpx.AsyncClient:

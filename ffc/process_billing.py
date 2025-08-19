@@ -5,6 +5,8 @@ import logging
 import tempfile
 from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime
+from io import BytesIO
+from pathlib import Path
 from typing import Any
 
 import aiofiles
@@ -193,7 +195,6 @@ class AuthorizationProcessor:
             self.logger.warning(f"Found the journal {journal_id} with status {journal_status}")
             raise JournalStatusError()
 
-
     async def process(self):
         """
         This method is responsible for passing a journal with status VALIDATED to
@@ -326,7 +327,12 @@ class AuthorizationProcessor:
         journal_id = journal["id"]
         for base_currency, exchange_rates_json in self.exchange_rates.items():
             await self.attach_exchange_rates(journal_id, base_currency, exchange_rates_json)
-        await self.mpt_client.upload_charges(journal_id, open(filepath, "rb"))
+
+        async with aiofiles.open(filepath, "rb") as file:
+            data = await file.read()
+        buf = BytesIO(data)
+        buf.name = Path(filepath).name
+        await self.mpt_client.upload_charges(journal_id, buf)
         if await self.is_journal_status_validated(journal_id):
             self.logger.info(f"submitting the journal {journal_id}.")
             await self.mpt_client.submit_journal(journal_id)
@@ -412,17 +418,14 @@ class AuthorizationProcessor:
                 f"expenses for datasource "
                 f"{datasource_info.linked_datasource_id} -> {daily_expenses=}"
             )
-            trial_start, trial_end, billing_percentage = get_agreement_data(agreement=agreement)
             charges = await self.generate_datasource_charges(
                 organization,
+                agreement,
                 datasource_info.linked_datasource_id,
                 datasource_info.linked_datasource_type,
                 datasource_info.datasource_id,
                 datasource_info.datasource_name,
                 daily_expenses,
-                billing_percentage,
-                trial_start,
-                trial_end,
             )
             self.logger.info(
                 f"charges for datasource {datasource_info.linked_datasource_id} -> {charges=}"
@@ -432,14 +435,12 @@ class AuthorizationProcessor:
     async def generate_datasource_charges(
         self,
         organization: dict,
+        agreement: dict[str, Any],
         linked_datasource_id: str,
         linked_datasource_type: str,
         datasource_id: str,
         datasource_name: str,
         daily_expenses: dict[int, Decimal],
-        billing_percentage: Decimal,
-        trial_start: date | None,
-        trial_end: date | None,
     ):
         """
         This method generates all the charges for the given datasource and
@@ -447,44 +448,44 @@ class AuthorizationProcessor:
         """
         organization_id = organization["id"]
         if not daily_expenses:  # No charges available for this datasource.
-            return add_line_to_monthly_charge(
-                vendor_external_id=linked_datasource_id,
-                datasource_id=datasource_id,
-                organization_id=organization_id,
-                start_date=self.billing_start_date.date(),
-                end_date=self.billing_end_date.date(),
-                price=Decimal(0),
-                datasource_name=datasource_name,
-                decimal_precision=self.DECIMAL_PRECISION,
-                description="No charges available for this datasource.",
-            )
+            return [
+                self.generate_charge_line(
+                    f"{linked_datasource_id}-01",
+                    datasource_id,
+                    organization_id,
+                    self.billing_start_date.date(),
+                    self.billing_end_date.date(),
+                    Decimal(0),
+                    datasource_name,
+                    description="No charges available for this datasource.",
+                )
+            ]
 
+        billing_percentage = get_billing_percentage(agreement=agreement)
         amount = daily_expenses[max(daily_expenses.keys())]
-        price_in_source_currency = (
-            amount
-            * billing_percentage
-            / Decimal(100)
-        ).quantize(self.DECIMAL_PRECISION)
-        idx = 1
+        price_in_source_currency = (amount * billing_percentage / Decimal(100)).quantize(
+            self.DECIMAL_PRECISION
+        )
         if price_in_source_currency == Decimal(0):
-            return add_line_to_monthly_charge(
-                vendor_external_id=f"{linked_datasource_id}-{idx:02d}",
-                datasource_id=datasource_id,
-                organization_id=organization_id,
-                start_date=date(
-                    self.billing_start_date.year,
-                    self.billing_start_date.month,
-                    min(daily_expenses.keys()),
-                ),
-                end_date=date(
-                    self.billing_start_date.year,
-                    self.billing_start_date.month,
-                    max(daily_expenses.keys()),
-                ),
-                price=Decimal(0),
-                datasource_name=datasource_name,
-                decimal_precision=self.DECIMAL_PRECISION,
-            )
+            return [
+                self.generate_charge_line(
+                    f"{linked_datasource_id}-01",
+                    datasource_id,
+                    organization_id,
+                    date(
+                        self.billing_start_date.year,
+                        self.billing_start_date.month,
+                        min(daily_expenses.keys()),
+                    ),
+                    date(
+                        self.billing_start_date.year,
+                        self.billing_start_date.month,
+                        max(daily_expenses.keys()),
+                    ),
+                    Decimal(0),
+                    datasource_name,
+                )
+            ]
 
         currency_conversion_info = await self.get_currency_conversion_info(
             organization,
@@ -505,54 +506,36 @@ class AuthorizationProcessor:
             f"{amount=} {billing_percentage=} {price_in_source_currency=} "
             f"{exchange_rate=} {price_in_target_currency=}"
         )
-        # Generate charge with total monthly spending. positive line
-        charges = add_line_to_monthly_charge(
-            vendor_external_id=f"{linked_datasource_id}-{idx:02d}",
-            datasource_id=datasource_id,
-            organization_id=organization_id,
-            start_date=date(
-                self.billing_start_date.year,
-                self.billing_start_date.month,
-                min(daily_expenses.keys()),
-            ),
-            end_date=date(
-                self.billing_start_date.year,
-                self.billing_start_date.month,
-                max(daily_expenses.keys()),
-            ),
-            price=price_in_target_currency,
-            datasource_name=datasource_name,
-            decimal_precision=self.DECIMAL_PRECISION,
-        )
-        idx += 1
-
-        daily_expenses = compute_daily_expenses(daily_expenses, self.billing_end_date.day)
-        entitlement = (
-            await self.ffc_client.fetch_entitlement(
-                organization_id,
+        charges = [
+            self.generate_charge_line(
+                f"{linked_datasource_id}-01",
                 datasource_id,
-                linked_datasource_type,
-                self.billing_start_date,
-                self.billing_end_date,
+                organization_id,
+                date(
+                    self.billing_start_date.year,
+                    self.billing_start_date.month,
+                    min(daily_expenses.keys()),
+                ),
+                date(
+                    self.billing_start_date.year,
+                    self.billing_start_date.month,
+                    max(daily_expenses.keys()),
+                ),
+                price_in_target_currency,
+                datasource_name,
             )
-            or {}
-        )
-        ent_events = entitlement.get("events", {})
-        self.calculate_entitlement_refund_lines(
-            daily_expenses=daily_expenses,
-            entitlement_id=entitlement.get("id"),
-            entitlement_start_date=ent_events.get("redeemed", {}).get("at"),
-            entitlement_termination_date=ent_events.get("terminated", {}).get("at"),
-            trial_start_date=trial_start,
-            trial_end_date=trial_end,
-            billing_percentage=billing_percentage,
-            exchange_rate=exchange_rate,
-            decimal_precision=self.DECIMAL_PRECISION,
-            charges=charges,
-            organization_id=organization_id,
-            linked_datasource_id=linked_datasource_id,
-            datasource_name=datasource_name,
-            datasource_id=datasource_id,
+        ]
+        charges.extend(
+            await self.generate_refund_lines(
+                daily_expenses=daily_expenses,
+                agreement=agreement,
+                exchange_rate=exchange_rate,
+                organization_id=organization_id,
+                linked_datasource_id=linked_datasource_id,
+                linked_datasource_type=linked_datasource_type,
+                datasource_name=datasource_name,
+                datasource_id=datasource_id,
+            )
         )
         return charges
 
@@ -570,11 +553,10 @@ class AuthorizationProcessor:
     def generate_refunds(
         self,
         daily_expenses: dict[int, Decimal],
+        agreement: dict[str, Any],
         entitlement_id: str | None,
         entitlement_start_date: str | None,
         entitlement_termination_date: str | None,
-        trial_start_date: date | None,
-        trial_end_date: date | None,
     ) -> list[Refund]:
         """
         This function generates a list of refunds for a billing period, considering
@@ -582,50 +564,12 @@ class AuthorizationProcessor:
         """
         refund_lines = []
         trial_days = set()
-        entitlement_days = set()
-
-        trial_refund_from = None
-        trial_refund_to = None
+        trial_start_date, trial_end_date = get_trial_dates(agreement=agreement)
         if trial_start_date and trial_end_date:
-            # Trial period can start or end on month other than billing month period.
-            # In this situation, we need to limit refunded expenses
-            # to a period overlapping with billing month.
-            # Example, billing month is June 1-30, a trial period is May 17 - June 17
-            # We need to refund expenses from June 1st to June 17th
-            trial_refund_from = max(trial_start_date, self.billing_start_date.date())
-            trial_refund_to = min(trial_end_date, self.billing_end_date.date())
-            trial_days = {
-                dt.date().day
-                for dt in rrule(
-                    DAILY,
-                    dtstart=trial_refund_from,
-                    until=trial_refund_to,
-                )
-            }
-
-        if entitlement_start_date:
-            if entitlement_termination_date:
-                entitlement_termination = datetime.fromisoformat(
-                    entitlement_termination_date,
-                )
-            else:
-                entitlement_termination = self.billing_end_date
-            entitlement_days = {
-                dt.date().day
-                for dt in rrule(
-                    DAILY,
-                    dtstart=max(
-                        datetime.fromisoformat(entitlement_start_date), self.billing_start_date
-                    ),
-                    until=min(
-                        entitlement_termination,
-                        self.billing_end_date,
-                    ),
-                )
-                if dt.date().day not in trial_days
-            }
-
-        if trial_days:
+            trial_days, trial_refund_from, trial_refund_to = self.get_trial_days(
+                trial_start_date,
+                trial_end_date,
+            )
             trial_amount = sum(daily_expenses.get(day, Decimal("0")) for day in trial_days)
 
             refund_lines.append(
@@ -641,197 +585,208 @@ class AuthorizationProcessor:
                 )
             )
 
-        if entitlement_days:
-            sorted_days = sorted(entitlement_days)
-            ranges = []
-            start = prev = sorted_days[0]
-            for d in sorted_days[1:]:
-                if d == prev + 1:
-                    prev = d
-                else:  # pragma no cover
-                    # todo investigate how to test this case
-                    ranges.append((start, prev))
-                    start = prev = d
-            ranges.append((start, prev))
-
-            for r_start, r_end in ranges:
+        if entitlement_start_date:
+            entitlement_days = self.get_entitlement_days(
+                entitlement_start_date,
+                entitlement_termination_date,
+                trial_days,
+            )
+            for r_start, r_end in split_entitlement_days_into_ranges(entitlement_days):
                 ent_amount = sum(daily_expenses.get(day, 0) for day in range(r_start, r_end + 1))
 
                 refund_lines.append(
                     Refund(
                         ent_amount,
-                        date(
-                            self.billing_start_date.year,
-                            self.billing_start_date.month,
-                            r_start,
-                        ),
-                        date(
-                            self.billing_start_date.year,
-                            self.billing_start_date.month,
-                            r_end,
-                        ),
+                        date(self.billing_start_date.year, self.billing_start_date.month, r_start),
+                        date(self.billing_start_date.year, self.billing_start_date.month, r_end),
                         f"Refund due to active entitlement {entitlement_id}",
                     )
                 )
-
         return refund_lines
 
-    def calculate_entitlement_refund_lines(
+    async def generate_refund_lines(
         self,
         daily_expenses: dict[int, Decimal],
-        entitlement_id: str | None,
-        entitlement_start_date: str | None,
-        entitlement_termination_date: str | None,
-        trial_start_date: date | None,
-        trial_end_date: date | None,
-        billing_percentage: Decimal,
+        agreement: dict[str, Any],
         exchange_rate: Decimal,
-        decimal_precision: Decimal,
-        charges: list,
         organization_id: str,
         linked_datasource_id: str,
+        linked_datasource_type: str,
         datasource_id: str,
         datasource_name: str,
     ):
         """
-        This function calculates the entitlement refund lines for a billing period
+        This function calculates the refund lines for a billing period
         """
+        daily_expenses = compute_daily_expenses(daily_expenses, self.billing_end_date.day)
+        entitlement = (
+            await self.ffc_client.fetch_entitlement(
+                organization_id,
+                datasource_id,
+                linked_datasource_type,
+                self.billing_start_date,
+                self.billing_end_date,
+            )
+            or {}
+        )
+        ent_events = entitlement.get("events", {})
+        entitlement_id = entitlement.get("id")
+        entitlement_start_date = ent_events.get("redeemed", {}).get("at")
+        entitlement_termination_date = ent_events.get("terminated", {}).get("at")
+        billing_percentage = get_billing_percentage(agreement=agreement)
         idx = 2
+        charges = []
         refunds = self.generate_refunds(
             daily_expenses=daily_expenses,
+            agreement=agreement,
             entitlement_id=entitlement_id,
             entitlement_start_date=entitlement_start_date,
             entitlement_termination_date=entitlement_termination_date,
-            trial_start_date=trial_start_date,
-            trial_end_date=trial_end_date,
         )
         for refund in refunds:
             expenses = Decimal(refund.amount)
             refund_in_source_currency = (
-                expenses.quantize(decimal_precision)
-                * billing_percentage.quantize(decimal_precision)
-                / Decimal(100).quantize(decimal_precision)
+                expenses.quantize(self.DECIMAL_PRECISION)
+                * billing_percentage.quantize(self.DECIMAL_PRECISION)
+                / Decimal(100).quantize(self.DECIMAL_PRECISION)
             )
             refund_in_target_currency = refund_in_source_currency * exchange_rate.quantize(
-                decimal_precision
+                self.DECIMAL_PRECISION
             )
-            add_line_to_monthly_charge(
-                vendor_external_id=f"{linked_datasource_id}-{idx:02d}",
-                datasource_id=datasource_id,
-                organization_id=organization_id,
-                start_date=refund.start_date,
-                end_date=refund.end_date,
-                price=-refund_in_target_currency,
-                datasource_name=datasource_name,
-                decimal_precision=decimal_precision,
-                description=refund.description,
-                charges=charges,
+            charges.append(
+                self.generate_charge_line(
+                    f"{linked_datasource_id}-{idx:02d}",
+                    datasource_id,
+                    organization_id,
+                    date(
+                        self.billing_start_date.year,
+                        self.billing_start_date.month,
+                        min(daily_expenses.keys()),
+                    ),
+                    date(
+                        self.billing_start_date.year,
+                        self.billing_start_date.month,
+                        max(daily_expenses.keys()),
+                    ),
+                    -refund_in_target_currency,
+                    datasource_name,
+                )
             )
+
             idx += 1
+        return charges
 
-
-def get_agreement_data(
-    agreement: dict[str, Any] | None = None,
-) -> tuple[Any | None, Any | None, Decimal]:
-    """
-    This function extract the trial_start and trial_end dates from the
-    agreement and return them as a tuple along with the billing percentage.
-    """
-    trial_start = None
-    trial_end = None
-    billing_percentage = Decimal(settings.EXTENSION_CONFIG["DEFAULT_BILLED_PERCENTAGE"])
-    if agreement:
-        trial_start = get_trial_start_date(agreement)
-        trial_end = get_trial_end_date(agreement)
-        billing_percentage = Decimal(
-            get_billed_percentage(agreement).get("value")
-            or settings.EXTENSION_CONFIG["DEFAULT_BILLED_PERCENTAGE"]
-        )
-
-    return trial_start, trial_end, billing_percentage
-
-
-def add_line_to_monthly_charge(
-    vendor_external_id: str,
-    datasource_id: str,
-    organization_id: str,
-    start_date: date,
-    end_date: date,
-    price: Decimal,
-    datasource_name: str,
-    decimal_precision: Decimal,
-    description: str = "",
-    charges: list | None = None,
-):
-    """
-    This function add a line to the billing charge list
-    """
-    if charges is None:
-        charges = []
-    line = generate_charge_line(
-        vendor_external_id=vendor_external_id,
-        datasource_id=datasource_id,
-        organization_id=organization_id,
-        start_date=start_date,
-        end_date=end_date,
-        price=price,
-        datasource_name=datasource_name,
-        decimal_precision=decimal_precision,
-        description=description,
-    )
-    print(line)
-    charges.append(f"{line}\n")
-    return charges
-
-
-def generate_charge_line(
-    vendor_external_id: str,
-    datasource_id: str,
-    organization_id: str,
-    start_date: date,
-    end_date: date,
-    price: Decimal,
-    datasource_name: str,
-    decimal_precision: Decimal,
-    description: str = "",
-):
-    """
-    This function generates a charge line for a vendor and datasource.
-    """
-    return json.dumps(
-        {
-            "externalIds": {
-                "vendor": vendor_external_id,
-                "invoice": "-",
-                "reference": datasource_id,
-            },
-            "search": {
-                "subscription": {
-                    "criteria": "subscription.externalIds.vendor",
-                    "value": organization_id,
-                },
-                "item": {
-                    "criteria": "item.externalIds.vendor",
-                    "value": settings.EXTENSION_CONFIG["FFC_EXTERNAL_PRODUCT_ID"],
-                },
-            },
-            "period": {
-                "start": start_date.isoformat(),
-                "end": end_date.isoformat(),
-            },
-            "price": {
-                "unitPP": str(price.quantize(decimal_precision)),
-                "PPx1": str(price.quantize(decimal_precision)),
-            },
-            "quantity": 1,
-            "description": {
-                "value1": datasource_name,
-                "value2": description,
-            },
-            "segment": "COM",
+    def get_trial_days(
+        self,
+        trial_start_date: date | None,
+        trial_end_date: date | None,
+    ):
+        # Trial period can start or end on month other than billing month period.
+        # In this situation, we need to limit refunded expenses
+        # to a period overlapping with billing month.
+        # Example, billing month is June 1-30, a trial period is May 17 - June 17
+        # We need to refund expenses from June 1st to June 17th
+        if not trial_start_date and not trial_end_date:
+            return None, None, None
+        trial_refund_from = max(trial_start_date, self.billing_start_date.date())
+        trial_refund_to = min(trial_end_date, self.billing_end_date.date())
+        trial_days = {
+            dt.date().day for dt in rrule(DAILY, dtstart=trial_refund_from, until=trial_refund_to)
         }
+        return trial_days, trial_refund_from, trial_refund_to
+
+    def get_entitlement_days(
+        self, entitlement_start_date: str, entitlement_end_date: str, trial_days: set[int]
+    ):
+        start_date = max(datetime.fromisoformat(entitlement_start_date), self.billing_start_date)
+        end_date = min(
+            datetime.fromisoformat(entitlement_end_date)
+            if entitlement_end_date
+            else self.billing_end_date,
+            self.billing_end_date,
+        )
+        entitlement_days = {
+            dt.date().day
+            for dt in rrule(DAILY, dtstart=start_date, until=end_date)
+            if dt.date().day not in trial_days
+        }
+        return entitlement_days
+
+    def generate_charge_line(
+        self,
+        vendor_external_id: str,
+        datasource_id: str,
+        organization_id: str,
+        start_date: date,
+        end_date: date,
+        price: Decimal,
+        datasource_name: str,
+        description: str = "",
+    ):
+        """
+        This function generates a charge line for a vendor and datasource.
+        """
+        line = json.dumps(
+            {
+                "externalIds": {
+                    "vendor": vendor_external_id,
+                    "invoice": "-",
+                    "reference": datasource_id,
+                },
+                "search": {
+                    "subscription": {
+                        "criteria": "subscription.externalIds.vendor",
+                        "value": organization_id,
+                    },
+                    "item": {
+                        "criteria": "item.externalIds.vendor",
+                        "value": settings.EXTENSION_CONFIG["FFC_EXTERNAL_PRODUCT_ID"],
+                    },
+                },
+                "period": {
+                    "start": start_date.isoformat(),
+                    "end": end_date.isoformat(),
+                },
+                "price": {
+                    "unitPP": str(price.quantize(self.DECIMAL_PRECISION)),
+                    "PPx1": str(price.quantize(self.DECIMAL_PRECISION)),
+                },
+                "quantity": 1,
+                "description": {
+                    "value1": datasource_name,
+                    "value2": description,
+                },
+                "segment": "COM",
+            }
+        )
+        return f"{line}\n"
+
+
+def get_trial_dates(agreement: dict[str, Any]) -> tuple[Any | None, Decimal]:
+    trial_start = get_trial_start_date(agreement)
+    trial_end = get_trial_end_date(agreement)
+    return trial_start, trial_end
+
+
+def get_billing_percentage(agreement: dict[str, Any]) -> Decimal:
+    return Decimal(
+        get_billed_percentage(agreement).get("value")
+        or settings.EXTENSION_CONFIG["DEFAULT_BILLED_PERCENTAGE"]
     )
 
 
-
-
+def split_entitlement_days_into_ranges(entitlement_days: set[int]):
+    if not entitlement_days:
+        return []
+    sorted_days = sorted(entitlement_days)
+    ranges = []
+    start = prev = sorted_days[0]
+    for d in sorted_days[1:]:
+        if d == prev + 1:
+            prev = d
+        else:  # pragma no cover
+            # investigate how to test this case
+            ranges.append((start, prev))
+            start = prev = d
+    ranges.append((start, prev))
+    return ranges
