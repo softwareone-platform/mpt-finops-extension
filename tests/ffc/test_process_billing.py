@@ -663,7 +663,6 @@ async def test_check_if_rate_conversion_client_error(
 
 # -----------------------------------------------------------------------------------
 # - Test generate_refunds()
-@pytest.mark.asyncio()
 def test_generate_refunds_success(
     daily_expenses, billing_process_instance, agreement_data_with_trial
 ):
