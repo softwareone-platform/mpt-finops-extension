@@ -1667,129 +1667,298 @@ def journal_attachment_response():
 
 @pytest.fixture()
 def agreement_data_with_trial():
+    def _agreement_factory(**overrides):
+        data = [
+            {
+                "id": "AGR-4528-5004-9617",
+                "status": "Active",
+                "listing": {"id": "LST-9168-7963"},
+                "authorization": {
+                    "id": "AUT-5305-9928",
+                    "name": "SoftwareOne FinOps for Cloud (USD)",
+                    "currency": "USD",
+                },
+                "vendor": {
+                    "id": "ACC-3805-2089",
+                    "type": "Vendor",
+                    "status": "Active",
+                    "name": "SoftwareOne Vendor",
+                    "icon": "/v1/accounts/accounts/ACC-3805-2089/icon",
+                },
+                "client": {
+                    "id": "ACC-5563-4382",
+                    "type": "Client",
+                    "status": "Active",
+                    "name": "Adastraflex 2.0",
+                    "icon": "/v1/accounts/accounts/ACC-5563-4382/icon",
+                },
+                "price": {"PPxY": 0.00000, "PPxM": 0.00000, "currency": "USD"},
+                "template": {"id": "TPL-7208-0459-0006", "name": "Purchase"},
+                "name": "SoftwareOne FinOps for Cloud for Adastraflex 2.0",
+                "parameters": {
+                    "ordering": [
+                        {
+                            "id": "PAR-7208-0459-0004",
+                            "externalId": "organizationName",
+                            "name": "Organization Name",
+                            "type": "SingleLineText",
+                            "phase": "Order",
+                            "displayValue": "Software One",
+                            "value": "Software One",
+                        },
+                        {
+                            "id": "PAR-7208-0459-0005",
+                            "externalId": "adminContact",
+                            "name": "Administrator",
+                            "type": "Contact",
+                            "phase": "Order",
+                            "displayValue": "JJ Adams jj@softwareone123.com",
+                            "value": {
+                                "firstName": "JJ",
+                                "lastName": "Adams",
+                                "email": "jj@softwareone123.com",
+                                "phone": None,
+                            },
+                        },
+                        {
+                            "id": "PAR-7208-0459-0006",
+                            "externalId": "currency",
+                            "name": "Currency",
+                            "type": "DropDown",
+                            "phase": "Order",
+                            "displayValue": "EUR",
+                            "value": "EUR",
+                        },
+                    ],
+                    "fulfillment": [
+                        {
+                            "id": "PAR-7208-0459-0007",
+                            "externalId": "dueDate",
+                            "name": "Due date",
+                            "type": "Date",
+                            "phase": "Fulfillment",
+                        },
+                        {
+                            "id": "PAR-7208-0459-0008",
+                            "externalId": "isNewUser",
+                            "name": "Is new user?",
+                            "type": "Checkbox",
+                            "phase": "Fulfillment",
+                        },
+                        {
+                            "id": "PAR-7208-0459-0009",
+                            "externalId": "trialStartDate",
+                            "name": "Trial period start date",
+                            "type": "Date",
+                            "phase": "Fulfillment",
+                            "displayValue": "2025-06-01",
+                            "value": "2025-06-01",
+                        },
+                        {
+                            "id": "PAR-7208-0459-0010",
+                            "externalId": "trialEndDate",
+                            "name": "Trial period end date",
+                            "type": "Date",
+                            "phase": "Fulfillment",
+                            "displayValue": "2025-06-15",
+                            "value": "2025-06-15",
+                        },
+                        {
+                            "id": "PAR-7208-0459-0011",
+                            "externalId": "billedPercentage",
+                            "name": "Billed percentage of monthly spend",
+                            "type": "SingleLineText",
+                            "phase": "Fulfillment",
+                            "displayValue": "4",
+                            "value": "4",
+                        },
+                    ],
+                },
+                "licensee": {"id": "LCE-1815-3571-9260", "name": "Pawels Licensee US"},
+                "buyer": {"id": "BUY-6923-7488", "name": "Pawels Buyer"},
+                "seller": {
+                    "id": "SEL-7282-9889",
+                    "externalId": "78ADB9DA-BC69-4CBF-BAA0-CDBC28619EF7",
+                    "name": "SoftwareOne, Inc.",
+                    "icon": "/v1/accounts/sellers/SEL-7282-9889/icon",
+                },
+                "product": {
+                    "id": "PRD-7208-0459",
+                    "name": "SoftwareOne FinOps for Cloud",
+                    "externalIds": {},
+                    "icon": "/v1/catalog/products/PRD-7208-0459/icon",
+                    "status": "Published",
+                },
+                "externalIds": {"client": "", "vendor": "FORG-1919-6513-6770"},
+            }
+        ]
+        if overrides:
+            data[0].update(overrides)
+        return data
+
+    return _agreement_factory()
+
+
+@pytest.fixture()
+def agreement_data_no_trial():
+    def _agreement_factory(**overrides):
+        data = [
+            {
+                "id": "AGR-4528-5004-9617",
+                "status": "Active",
+                "listing": {"id": "LST-9168-7963"},
+                "authorization": {
+                    "id": "AUT-5305-9928",
+                    "name": "SoftwareOne FinOps for Cloud (USD)",
+                    "currency": "USD",
+                },
+                "vendor": {
+                    "id": "ACC-3805-2089",
+                    "type": "Vendor",
+                    "status": "Active",
+                    "name": "SoftwareOne Vendor",
+                    "icon": "/v1/accounts/accounts/ACC-3805-2089/icon",
+                },
+                "client": {
+                    "id": "ACC-5563-4382",
+                    "type": "Client",
+                    "status": "Active",
+                    "name": "Adastraflex 2.0",
+                    "icon": "/v1/accounts/accounts/ACC-5563-4382/icon",
+                },
+                "price": {"PPxY": 0.00000, "PPxM": 0.00000, "currency": "USD"},
+                "template": {"id": "TPL-7208-0459-0006", "name": "Purchase"},
+                "name": "SoftwareOne FinOps for Cloud for Adastraflex 2.0",
+                "parameters": {
+                    "ordering": [
+                        {
+                            "id": "PAR-7208-0459-0004",
+                            "externalId": "organizationName",
+                            "name": "Organization Name",
+                            "type": "SingleLineText",
+                            "phase": "Order",
+                            "displayValue": "Software One",
+                            "value": "Software One",
+                        },
+                        {
+                            "id": "PAR-7208-0459-0005",
+                            "externalId": "adminContact",
+                            "name": "Administrator",
+                            "type": "Contact",
+                            "phase": "Order",
+                            "displayValue": "JJ Adams jj@softwareone123.com",
+                            "value": {
+                                "firstName": "JJ",
+                                "lastName": "Adams",
+                                "email": "jj@softwareone123.com",
+                                "phone": None,
+                            },
+                        },
+                        {
+                            "id": "PAR-7208-0459-0006",
+                            "externalId": "currency",
+                            "name": "Currency",
+                            "type": "DropDown",
+                            "phase": "Order",
+                            "displayValue": "EUR",
+                            "value": "EUR",
+                        },
+                    ],
+                    "fulfillment": [
+                        {
+                            "id": "PAR-7208-0459-0007",
+                            "externalId": "dueDate",
+                            "name": "Due date",
+                            "type": "Date",
+                            "phase": "Fulfillment",
+                        },
+                        {
+                            "id": "PAR-7208-0459-0008",
+                            "externalId": "isNewUser",
+                            "name": "Is new user?",
+                            "type": "Checkbox",
+                            "phase": "Fulfillment",
+                        },
+                        {
+                            "id": "PAR-7208-0459-0011",
+                            "externalId": "billedPercentage",
+                            "name": "Billed percentage of monthly spend",
+                            "type": "SingleLineText",
+                            "phase": "Fulfillment",
+                            "displayValue": "4",
+                            "value": "4",
+                        },
+                    ],
+                },
+                "licensee": {"id": "LCE-1815-3571-9260", "name": "Pawels Licensee US"},
+                "buyer": {"id": "BUY-6923-7488", "name": "Pawels Buyer"},
+                "seller": {
+                    "id": "SEL-7282-9889",
+                    "externalId": "78ADB9DA-BC69-4CBF-BAA0-CDBC28619EF7",
+                    "name": "SoftwareOne, Inc.",
+                    "icon": "/v1/accounts/sellers/SEL-7282-9889/icon",
+                },
+                "product": {
+                    "id": "PRD-7208-0459",
+                    "name": "SoftwareOne FinOps for Cloud",
+                    "externalIds": {},
+                    "icon": "/v1/catalog/products/PRD-7208-0459/icon",
+                    "status": "Published",
+                },
+                "externalIds": {"client": "", "vendor": "FORG-1919-6513-6770"},
+            }
+        ]
+        if overrides:
+            data[0].update(overrides)
+        return data
+
+    return _agreement_factory()
+
+
+@pytest.fixture()
+def agreement_fulfillment():
     return [
         {
-            "id": "AGR-4528-5004-9617",
-            "status": "Active",
-            "listing": {"id": "LST-9168-7963"},
-            "authorization": {
-                "id": "AUT-5305-9928",
-                "name": "SoftwareOne FinOps for Cloud (USD)",
-                "currency": "USD",
-            },
-            "vendor": {
-                "id": "ACC-3805-2089",
-                "type": "Vendor",
-                "status": "Active",
-                "name": "SoftwareOne Vendor",
-                "icon": "/v1/accounts/accounts/ACC-3805-2089/icon",
-            },
-            "client": {
-                "id": "ACC-5563-4382",
-                "type": "Client",
-                "status": "Active",
-                "name": "Adastraflex 2.0",
-                "icon": "/v1/accounts/accounts/ACC-5563-4382/icon",
-            },
-            "price": {"PPxY": 0.00000, "PPxM": 0.00000, "currency": "USD"},
-            "template": {"id": "TPL-7208-0459-0006", "name": "Purchase"},
-            "name": "SoftwareOne FinOps for Cloud for Adastraflex 2.0",
-            "parameters": {
-                "ordering": [
-                    {
-                        "id": "PAR-7208-0459-0004",
-                        "externalId": "organizationName",
-                        "name": "Organization Name",
-                        "type": "SingleLineText",
-                        "phase": "Order",
-                        "displayValue": "Software One",
-                        "value": "Software One",
-                    },
-                    {
-                        "id": "PAR-7208-0459-0005",
-                        "externalId": "adminContact",
-                        "name": "Administrator",
-                        "type": "Contact",
-                        "phase": "Order",
-                        "displayValue": "JJ Adams jj@softwareone123.com",
-                        "value": {
-                            "firstName": "JJ",
-                            "lastName": "Adams",
-                            "email": "jj@softwareone123.com",
-                            "phone": None,
-                        },
-                    },
-                    {
-                        "id": "PAR-7208-0459-0006",
-                        "externalId": "currency",
-                        "name": "Currency",
-                        "type": "DropDown",
-                        "phase": "Order",
-                        "displayValue": "EUR",
-                        "value": "EUR",
-                    },
-                ],
-                "fulfillment": [
-                    {
-                        "id": "PAR-7208-0459-0007",
-                        "externalId": "dueDate",
-                        "name": "Due date",
-                        "type": "Date",
-                        "phase": "Fulfillment",
-                    },
-                    {
-                        "id": "PAR-7208-0459-0008",
-                        "externalId": "isNewUser",
-                        "name": "Is new user?",
-                        "type": "Checkbox",
-                        "phase": "Fulfillment",
-                    },
-                    {
-                        "id": "PAR-7208-0459-0009",
-                        "externalId": "trialStartDate",
-                        "name": "Trial period start date",
-                        "type": "Date",
-                        "phase": "Fulfillment",
-                        "displayValue": "2025-06-04",
-                        "value": "2025-06-04",
-                    },
-                    {
-                        "id": "PAR-7208-0459-0010",
-                        "externalId": "trialEndDate",
-                        "name": "Trial period end date",
-                        "type": "Date",
-                        "phase": "Fulfillment",
-                        "displayValue": "2025-07-04",
-                        "value": "2025-07-04",
-                    },
-                    {
-                        "id": "PAR-7208-0459-0011",
-                        "externalId": "billedPercentage",
-                        "name": "Billed percentage of monthly spend",
-                        "type": "SingleLineText",
-                        "phase": "Fulfillment",
-                        "displayValue": "4",
-                        "value": "4",
-                    },
-                ],
-            },
-            "licensee": {"id": "LCE-1815-3571-9260", "name": "Pawels Licensee US"},
-            "buyer": {"id": "BUY-6923-7488", "name": "Pawels Buyer"},
-            "seller": {
-                "id": "SEL-7282-9889",
-                "externalId": "78ADB9DA-BC69-4CBF-BAA0-CDBC28619EF7",
-                "name": "SoftwareOne, Inc.",
-                "icon": "/v1/accounts/sellers/SEL-7282-9889/icon",
-            },
-            "product": {
-                "id": "PRD-7208-0459",
-                "name": "SoftwareOne FinOps for Cloud",
-                "externalIds": {},
-                "icon": "/v1/catalog/products/PRD-7208-0459/icon",
-                "status": "Published",
-            },
-            "externalIds": {"client": "", "vendor": "FORG-1919-6513-6770"},
-        }
+            "externalId": "dueDate",
+            "id": "PAR-7208-0459-0007",
+            "name": "Due date",
+            "phase": "Fulfillment",
+            "type": "Date",
+        },
+        {
+            "externalId": "isNewUser",
+            "id": "PAR-7208-0459-0008",
+            "name": "Is new user?",
+            "phase": "Fulfillment",
+            "type": "Checkbox",
+        },
+        {
+            "displayValue": "2025-06-01",
+            "externalId": "trialStartDate",
+            "id": "PAR-7208-0459-0009",
+            "name": "Trial period start date",
+            "phase": "Fulfillment",
+            "type": "Date",
+            "value": "2025-06-01",
+        },
+        {
+            "displayValue": "2025-06-15",
+            "externalId": "trialEndDate",
+            "id": "PAR-7208-0459-0010",
+            "name": "Trial period end date",
+            "phase": "Fulfillment",
+            "type": "Date",
+            "value": "2025-06-15",
+        },
+        {
+            "displayValue": "4",
+            "externalId": "billedPercentage",
+            "id": "PAR-7208-0459-0011",
+            "name": "Billed percentage of monthly spend",
+            "phase": "Fulfillment",
+            "type": "SingleLineText",
+            "value": "4",
+        },
     ]
 
 

@@ -12,7 +12,7 @@ from ffc.process_billing import (
 class Command(BaseCommand):
     help = "Synchronize agreements on anniversary."
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser):  # pragma no cover
         parser.add_argument(
             "--dry-run",
             action="store_true",
@@ -38,8 +38,11 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-        asyncio.run(process_billing(
-            options["year"],
-            options["month"],
-            authorization_id=options.get("authorization"),
-            dry_run=options["dry_run"]))
+        asyncio.run(
+            process_billing(
+                options["year"],
+                options["month"],
+                authorization_id=options.get("authorization"),
+                dry_run=options["dry_run"],
+            )
+        )

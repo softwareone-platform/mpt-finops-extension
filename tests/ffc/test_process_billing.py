@@ -1,23 +1,28 @@
+import importlib
 import json
 import logging
 import tempfile
 from datetime import date
-from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import httpx
 import pytest
 
 from ffc.billing.dataclasses import AuthorizationProcessResult, CurrencyConversionInfo, Refund
 from ffc.billing.exceptions import ExchangeRatesClientError, JournalStatusError
-from ffc.process_billing import get_agreement_data
+from ffc.process_billing import get_trial_dates
+
+MODULE_PATH = "ffc.management.commands.process_billing"
+mod = importlib.import_module(MODULE_PATH)
+Command = mod.Command
 
 # - test evaluate_journal_status()
 
 
 @pytest.mark.asyncio()
-async def test_evaluate_journal_status_draft(existing_journal_file_response,
-                                             billing_process_instance,caplog):
+async def test_evaluate_journal_status_draft(
+    existing_journal_file_response, billing_process_instance, caplog
+):
     """if a journal exists, it should return it as it is"""
     billing_process_instance.mpt_client = AsyncMock()
     billing_process_instance.mpt_client.get_journal = AsyncMock(
@@ -36,7 +41,7 @@ async def test_evaluate_journal_status_draft(existing_journal_file_response,
 
 @pytest.mark.asyncio()
 async def test_evaluate_journal_status_validated(
-        existing_journal_file_response, billing_process_instance, caplog
+    existing_journal_file_response, billing_process_instance, caplog
 ):
     """if a journal exists and its status is Validate, it should return the journal as it is"""
     billing_process_instance.mpt_client = AsyncMock()
@@ -49,13 +54,15 @@ async def test_evaluate_journal_status_validated(
             journal_external_id="202505",
         )
         assert result == existing_journal_file_response[0]
-    assert ("[AUT-5305-9928] Already found journal: BJO-9000-4019 with status Validated"
-            in caplog.messages[0])
+    assert (
+        "[AUT-5305-9928] Already found journal: BJO-9000-4019 with status Validated"
+        in caplog.messages[0]
+    )
 
 
 @pytest.mark.asyncio()
 async def test_evaluate_journal_different_from_draft_and_not_validated(
-        existing_journal_file_response, billing_process_instance, caplog
+    existing_journal_file_response, billing_process_instance, caplog
 ):
     """if a journal exists and its status is != from Validated or Draft,
     it should raise a JournalStatusError"""
@@ -196,8 +203,7 @@ async def test_write_charges_file_agr_000(
         )
         assert (
             "[AUT-5305-9928] Skip organization FORG-4801-6958-2949 - "
-            "SoftwareOne (Test Environment) because of ID AGR-0000-0000-0000"
-            in caplog.messages[1]
+            "SoftwareOne (Test Environment) because of ID AGR-0000-0000-0000" in caplog.messages[1]
         )
         assert result is False
 
@@ -207,7 +213,7 @@ async def test_write_charges_file_many_agreements(
     mocker,
     billing_process_instance,
     patch_fetch_organizations,
-        agreement_details,
+    agreement_details,
     patch_fetch_organization_expenses,
     caplog,
 ):
@@ -236,8 +242,7 @@ async def test_write_charges_file_many_agreements(
         )
         assert (
             "[AUT-5305-9928] Found 2 while we were expecting "
-            "1 for the organization FORG-4801-6958-2949"
-            in caplog.messages[1]
+            "1 for the organization FORG-4801-6958-2949" in caplog.messages[1]
         )
         assert result is False
 
@@ -247,7 +252,7 @@ async def test_write_charges_file_different_auth_id(
     mocker,
     billing_process_instance,
     patch_fetch_organizations,
-        agreement_details,
+    agreement_details,
     patch_fetch_organization_expenses,
     caplog,
 ):
@@ -274,8 +279,7 @@ async def test_write_charges_file_different_auth_id(
         assert (
             "[AUT-5305-9928] Skipping organization "
             "FORG-4801-6958-2949 because it belongs "
-            "to an agreement with different authorization: AUT-5305-9955"
-            in caplog.messages[1]
+            "to an agreement with different authorization: AUT-5305-9955" in caplog.messages[1]
         )
         assert result is False
 
@@ -328,10 +332,10 @@ async def test_attach_exchange_rates_with_no_existing_attachment(
 @pytest.mark.asyncio()
 async def test_complete_journal_process_success(
     billing_process_instance,
-        create_journal_response,
-        journal_attachment_response,
+    create_journal_response,
+    journal_attachment_response,
     caplog,
-        exchange_rates,
+    exchange_rates,
 ):
     """if a Journal is created successfully, the exchanges_rate_json will be attached and if the
     status of the journal is Validated, the journal will be submitted. None is returned"""
@@ -361,9 +365,9 @@ async def test_complete_journal_process_success(
 @pytest.mark.asyncio()
 async def test_complete_journal_process_fail(
     billing_process_instance,
-        create_journal_response,
-        journal_attachment_response,
-        exchange_rates,
+    create_journal_response,
+    journal_attachment_response,
+    exchange_rates,
     caplog,
 ):
     """if a Journal is created successfully,
@@ -396,56 +400,34 @@ async def test_complete_journal_process_fail(
     )
 
 
-# --------------------------------------------------------------------------------------------
-# - Test get_agreement_data()
-
-def test_get_agreement_data(agreement_data_with_trial):
-    """Providing an agreement, a tuple with trial_start,
-    trial_end and billing_percentage will be returned"""
-    trial_start, trial_end, billing_percentage = get_agreement_data(agreement_data_with_trial[0])
-    assert isinstance(trial_start, date)
-    assert isinstance(trial_end, date)
-    assert isinstance(billing_percentage, Decimal)
-
-def test_get_agreement_no_agreement():
-    """If no agreement is provided, the trial_start and trial_end date will be None"""
-    trial_start, trial_end, billing_percentage = get_agreement_data(None)
-    assert trial_start is None
-    assert trial_end is None
-    assert isinstance(billing_percentage, Decimal)
-
-
 # ------------------------------------------------------------------------
 # - Test generate_datasource_charges()
 
 
 @pytest.mark.asyncio()
 async def test_generate_datasource_charges_empty_daily_expenses(
-    billing_process_instance, organization_data
+    billing_process_instance, organization_data, agreement_data_no_trial
 ):
     """if no daily_expenses are provided, there will be no charges for the given datasource"""
     response = await billing_process_instance.generate_datasource_charges(
         organization=organization_data,
+        agreement=agreement_data_no_trial[0],
         linked_datasource_id="34654563456",
         linked_datasource_type="AWS",
         datasource_id="1234",
         datasource_name="Test",
         daily_expenses={},
-        billing_percentage=Decimal("4"),
-        trial_start=None,
-        trial_end=None,
     )
     assert isinstance(response[0], str)
     assert (
-        response[0]
-        == '{"externalIds": {"vendor": "34654563456", "invoice": "-", '
-           '"reference": "1234"}, "search": {"subscription": '
-           '{"criteria": "subscription.externalIds.vendor", "value": "FORG-4801-6958-2949"}, '
-           '"item": {"criteria": "item.externalIds.vendor", "value": ""}}, '
-           '"period": {"start": "2025-06-01", "end": "2025-06-30"}, '
-           '"price": {"unitPP": "0.0000", "PPx1": "0.0000"}, '
-           '"quantity": 1, "description": {"value1": "Test", '
-           '"value2": "No charges available for this datasource."}, "segment": "COM"}\n'
+        response[0] == '{"externalIds": {"vendor": "34654563456-01", "invoice": "-", '
+        '"reference": "1234"}, "search": {"subscription": '
+        '{"criteria": "subscription.externalIds.vendor", "value": "FORG-4801-6958-2949"}, '
+        '"item": {"criteria": "item.externalIds.vendor", "value": ""}}, '
+        '"period": {"start": "2025-06-01", "end": "2025-06-30"}, '
+        '"price": {"unitPP": "0.0000", "PPx1": "0.0000"}, '
+        '"quantity": 1, "description": {"value1": "Test", '
+        '"value2": "No charges available for this datasource."}, "segment": "COM"}\n'
     )
     assert (
         json.loads(response[0]).get("description").get("value2")
@@ -456,10 +438,11 @@ async def test_generate_datasource_charges_empty_daily_expenses(
 @pytest.mark.asyncio()
 async def test_generate_datasource_charges_with_daily_expenses(
     billing_process_instance,
-        organization_data,
-        daily_expenses,
-        exchange_rates,
-        entitlement,
+    organization_data,
+    agreement_data_with_trial,
+    daily_expenses,
+    exchange_rates,
+    entitlement,
     caplog,
 ):
     """if there are daily_expenses, charges will be generated for the given datasource"""
@@ -472,41 +455,31 @@ async def test_generate_datasource_charges_with_daily_expenses(
     with caplog.at_level(logging.INFO):
         response = await billing_process_instance.generate_datasource_charges(
             organization=organization_data,
+            agreement=agreement_data_with_trial[0],
             linked_datasource_id="34654563456",
             linked_datasource_type="AWS",
             datasource_id="34654563488",
             datasource_name="Test",
             daily_expenses=daily_expenses,
-            billing_percentage=Decimal("4"),
-            trial_start=date(2025, 6, 1),
-            trial_end=date(2025, 6, 30),
         )
     assert isinstance(response[0], str)
     assert (
-        response[0]
-        == '{"externalIds": {"vendor": "34654563456-01", '
-           '"invoice": "-", "reference": "34654563488"}, '
-           '"search": {"subscription": {"criteria": "subscription.externalIds.vendor", '
-           '"value": "FORG-4801-6958-2949"}, '
-           '"item": {"criteria": "item.externalIds.vendor", "value": ""}}, '
-           '"period": {"start": "2025-06-01", "end": "2025-06-30"}, '
-           '"price": {"unitPP": "183.9829", "PPx1": "183.9829"}, '
-           '"quantity": 1, "description": {"value1": "Test", "value2": ""}, '
-           '"segment": "COM"}\n'
+        response[0] == '{"externalIds": {"vendor": "34654563456-01", "invoice": "-", "reference": '
+        '"34654563488"}, "search": {"subscription": {"criteria": '
+        '"subscription.externalIds.vendor", "value": "FORG-4801-6958-2949"}, "item": '
+        '{"criteria": "item.externalIds.vendor", "value": ""}}, "period": {"start": '
+        '"2025-06-01", "end": "2025-06-30"}, "price": {"unitPP": "183.9829", "PPx1": '
+        '"183.9829"}, "quantity": 1, "description": {"value1": "Test", "value2": ""}, '
+        '"segment": "COM"}\n'
     )
     assert (
-        response[1]
-        == '{"externalIds": {"vendor": "34654563456-02", '
-           '"invoice": "-", "reference": "34654563488"}, '
-           '"search": {"subscription": {"criteria": "subscription.externalIds.vendor", '
-           '"value": "FORG-4801-6958-2949"}, '
-           '"item": {"criteria": "item.externalIds.vendor", "value": ""}}, '
-           '"period": {"start": "2025-06-01", "end": "2025-06-30"}, '
-           '"price": {"unitPP": "-183.9829", "PPx1": "-183.9829"}, '
-           '"quantity": 1, "description": '
-           '{"value1": "Test", '
-           '"value2": "Refund due to trial period (from 01 Jun 2025 to 30 Jun 2025)"}, '
-           '"segment": "COM"}\n'
+        response[1] == '{"externalIds": {"vendor": "34654563456-02", "invoice": "-", "reference": '
+        '"34654563488"}, "search": {"subscription": {"criteria": '
+        '"subscription.externalIds.vendor", "value": "FORG-4801-6958-2949"}, "item": '
+        '{"criteria": "item.externalIds.vendor", "value": ""}}, "period": {"start": '
+        '"2025-06-01", "end": "2025-06-30"}, "price": {"unitPP": "-39.1447", "PPx1": '
+        '"-39.1447"}, "quantity": 1, "description": {"value1": "Test", "value2": ""}, '
+        '"segment": "COM"}\n'
     )
     assert (
         "[AUT-5305-9928] : organization_id='FORG-4801-6958-2949' "
@@ -521,10 +494,11 @@ async def test_generate_datasource_charges_with_daily_expenses(
 @pytest.mark.asyncio()
 async def test_generate_datasource_charges_with_price_in_source_currency_eq_0(
     billing_process_instance,
-        organization_data,
-        daily_expenses,
-        exchange_rates,
-        entitlement,
+    organization_data,
+    daily_expenses,
+    exchange_rates,
+    entitlement,
+    agreement_data_with_trial,
     caplog,
 ):
     """if there are daily_expenses, but no charges, a line will be added to
@@ -535,29 +509,37 @@ async def test_generate_datasource_charges_with_price_in_source_currency_eq_0(
     billing_process_instance.exchange_rate_client.fetch_exchange_rates = AsyncMock(
         return_value=exchange_rates
     )
+    agreement_data_with_trial[0]["parameters"]["fulfillment"] = [
+        {
+            "id": "PAR-7208-0459-0011",
+            "externalId": "billedPercentage",
+            "name": "Billed percentage of monthly spend",
+            "type": "SingleLineText",
+            "phase": "Fulfillment",
+            "displayValue": "0",
+            "value": "0",
+        }
+    ]
     with caplog.at_level(logging.INFO):
         response = await billing_process_instance.generate_datasource_charges(
             organization=organization_data,
+            agreement=agreement_data_with_trial[0],
             linked_datasource_id="34654563456",
             linked_datasource_type="AWS",
             datasource_id="34654563488",
             datasource_name="Test",
             daily_expenses=daily_expenses,
-            billing_percentage=Decimal("0"),
-            trial_start=date(2025, 6, 1),
-            trial_end=date(2025, 6, 30),
         )
     assert isinstance(response[0], str)
     assert (
-        response[0]
-        == '{"externalIds": {"vendor": "34654563456-01", "invoice": "-", '
-           '"reference": "34654563488"}, '
-           '"search": {"subscription": {"criteria": "subscription.externalIds.vendor", '
-           '"value": "FORG-4801-6958-2949"}, '
-           '"item": {"criteria": "item.externalIds.vendor", "value": ""}}, '
-           '"period": {"start": "2025-06-01", "end": "2025-06-30"}, '
-           '"price": {"unitPP": "0.0000", "PPx1": "0.0000"}, "quantity": 1,'
-           ' "description": {"value1": "Test", "value2": ""}, "segment": "COM"}\n'
+        response[0] == '{"externalIds": {"vendor": "34654563456-01", "invoice": "-", '
+        '"reference": "34654563488"}, '
+        '"search": {"subscription": {"criteria": "subscription.externalIds.vendor", '
+        '"value": "FORG-4801-6958-2949"}, '
+        '"item": {"criteria": "item.externalIds.vendor", "value": ""}}, '
+        '"period": {"start": "2025-06-01", "end": "2025-06-30"}, '
+        '"price": {"unitPP": "0.0000", "PPx1": "0.0000"}, "quantity": 1,'
+        ' "description": {"value1": "Test", "value2": ""}, "segment": "COM"}\n'
     )
     assert json.loads(response[0]).get("price").get("unitPP") == "0.0000"
 
@@ -565,10 +547,11 @@ async def test_generate_datasource_charges_with_price_in_source_currency_eq_0(
 @pytest.mark.asyncio()
 async def test_generate_datasource_charges_with_no_entitlement(
     billing_process_instance,
-        organization_data,
-        daily_expenses,
-        exchange_rates,
-        entitlement,
+    agreement_data_with_trial,
+    organization_data,
+    daily_expenses,
+    exchange_rates,
+    entitlement,
     caplog,
 ):
     """if there are no entitlements, the function still writes the existing charges for the
@@ -582,40 +565,32 @@ async def test_generate_datasource_charges_with_no_entitlement(
     with caplog.at_level(logging.INFO):
         response = await billing_process_instance.generate_datasource_charges(
             organization=organization_data,
+            agreement=agreement_data_with_trial[0],
             linked_datasource_id="34654563456",
             linked_datasource_type="AWS",
             datasource_id="34654563488",
             datasource_name="Test",
             daily_expenses=daily_expenses,
-            billing_percentage=Decimal("4"),
-            trial_start=date(2025, 6, 1),
-            trial_end=date(2025, 6, 15),
         )
     assert isinstance(response[0], str)
     assert (
-        response[0]
-        == '{"externalIds": {"vendor": "34654563456-01", "invoice": "-", '
-           '"reference": "34654563488"}, '
-           '"search": {"subscription": {"criteria": "subscription.externalIds.vendor", '
-           '"value": "FORG-4801-6958-2949"}, '
-           '"item": {"criteria": "item.externalIds.vendor", "value": ""}}, '
-           '"period": {"start": "2025-06-01", "end": "2025-06-30"}, '
-           '"price": {"unitPP": "183.9829", "PPx1": "183.9829"}, '
-           '"quantity": 1, "description": {"value1": "Test", "value2": ""}, "segment": "COM"}\n'
-    )
-    assert (
-        response[1]
-        == '{"externalIds": {"vendor": "34654563456-02", "invoice": "-", '
-           '"reference": "34654563488"}, '
+        response[0] == '{"externalIds": {"vendor": "34654563456-01", "invoice": "-", '
+        '"reference": "34654563488"}, '
         '"search": {"subscription": {"criteria": "subscription.externalIds.vendor", '
         '"value": "FORG-4801-6958-2949"}, '
-           '"item": {"criteria": "item.externalIds.vendor", "value": ""}},'
-        ' "period": {"start": "2025-06-01", "end": "2025-06-15"}, '
-        '"price": {"unitPP": "-39.1447", "PPx1": "-39.1447"}, '
-        '"quantity": 1, '
-           '"description": {"value1": "Test", '
-           '"value2": "Refund due to trial period (from 01 Jun 2025 to 15 Jun 2025)"},'
-           ' "segment": "COM"}\n'
+        '"item": {"criteria": "item.externalIds.vendor", "value": ""}}, '
+        '"period": {"start": "2025-06-01", "end": "2025-06-30"}, '
+        '"price": {"unitPP": "183.9829", "PPx1": "183.9829"}, '
+        '"quantity": 1, "description": {"value1": "Test", "value2": ""}, "segment": "COM"}\n'
+    )
+    assert (
+        response[1] == '{"externalIds": {"vendor": "34654563456-02", "invoice": "-", "reference": '
+        '"34654563488"}, "search": {"subscription": {"criteria": '
+        '"subscription.externalIds.vendor", "value": "FORG-4801-6958-2949"}, "item": '
+        '{"criteria": "item.externalIds.vendor", "value": ""}}, "period": {"start": '
+        '"2025-06-01", "end": "2025-06-30"}, "price": {"unitPP": "-39.1447", "PPx1": '
+        '"-39.1447"}, "quantity": 1, "description": {"value1": "Test", "value2": ""}, '
+        '"segment": "COM"}\n'
     )
 
 
@@ -626,10 +601,10 @@ async def test_generate_datasource_charges_with_no_entitlement(
 @pytest.mark.asyncio()
 async def test_get_currency_conversion_info_needed(
     billing_process_instance,
-        organization_data,
-        exchange_rates,
+    organization_data,
+    exchange_rates,
     caplog,
-        currency_conversion,
+    currency_conversion,
 ):
     """if the billing currency is different from the base currency, the function
     will fetch the exchange rates for the conversion"""
@@ -663,8 +638,7 @@ async def test_get_currency_conversion_info_no_needed(
         assert isinstance(result, CurrencyConversionInfo)
     assert (
         "[AUT-5305-9928] organization FORG-4801-6958-2949 - SoftwareOne (Test Environment) "
-        "doesn't need currency conversion"
-        in caplog.messages[0]
+        "doesn't need currency conversion" in caplog.messages[0]
     )
 
 
@@ -690,16 +664,17 @@ async def test_check_if_rate_conversion_client_error(
 # -----------------------------------------------------------------------------------
 # - Test generate_refunds()
 @pytest.mark.asyncio()
-def test_generate_refunds_success(daily_expenses,billing_process_instance):
+def test_generate_refunds_success(
+    daily_expenses, billing_process_instance, agreement_data_with_trial
+):
     """if there are a  trial and an entitlements active, a refund will be generated.
     Trials get priority over entitlements if the periods overlap."""
     response = billing_process_instance.generate_refunds(
         daily_expenses=daily_expenses,
+        agreement=agreement_data_with_trial[0],
         entitlement_id="FENT-2502-5308-4600",
         entitlement_start_date="2025-06-01T08:22:44.126636Z",
         entitlement_termination_date="2025-06-10T08:22:44.126636Z",
-        trial_start_date=date(2025, 6, 1),
-        trial_end_date=date(2025, 6, 15),
     )
     assert isinstance(response, list)
     assert isinstance(response[0], Refund)
@@ -708,17 +683,17 @@ def test_generate_refunds_success(daily_expenses,billing_process_instance):
     assert response[0].end_date == date(2025, 6, 15)
 
 
-@pytest.mark.asyncio()
-def test_generate_refunds_success_trial_and_entitlements(daily_expenses,billing_process_instance):
+def test_generate_refunds_success_trial_and_entitlements(
+    daily_expenses, billing_process_instance, agreement_data_with_trial
+):
     """if there are a  trial and an entitlements active, a refund will be generated.
     Trials get priority over entitlements if the periods overlap."""
     response = billing_process_instance.generate_refunds(
         daily_expenses=daily_expenses,
+        agreement=agreement_data_with_trial[0],
         entitlement_id="FENT-2502-5308-4600",
         entitlement_start_date="2025-06-01T08:22:44.126636Z",
         entitlement_termination_date="2025-06-30T08:22:44.126636Z",
-        trial_start_date=date(2025, 6, 1),
-        trial_end_date=date(2025, 6, 15),
     )
     assert isinstance(response, list)
     assert isinstance(response[0], Refund)
@@ -730,15 +705,16 @@ def test_generate_refunds_success_trial_and_entitlements(daily_expenses,billing_
     assert response[1].end_date == date(2025, 6, 29)
 
 
-def test_generate_refunds_no_trial_days(daily_expenses,billing_process_instance):
+def test_generate_refunds_no_trial_days(
+    daily_expenses, billing_process_instance, agreement_data_no_trial
+):
     """if only an entitlement is active, there will be a refund for that period."""
     response = billing_process_instance.generate_refunds(
         daily_expenses=daily_expenses,
+        agreement=agreement_data_no_trial[0],
         entitlement_id="FENT-2502-5308-4600",
         entitlement_start_date="2025-06-01T08:22:44.126636Z",
         entitlement_termination_date="2025-06-30T08:22:44.126636Z",
-        trial_start_date=None,
-        trial_end_date=None,
     )
     assert isinstance(response, list)
     assert isinstance(response[0], Refund)
@@ -747,32 +723,33 @@ def test_generate_refunds_no_trial_days(daily_expenses,billing_process_instance)
     assert response[0].end_date == date(2025, 6, 29)
 
 
-def test_generate_refunds_no_trial_days_no_entitlement_days(daily_expenses,
-                                                            billing_process_instance):
+def test_generate_refunds_no_trial_days_no_entitlement_days(
+    daily_expenses, billing_process_instance, agreement_data_no_trial
+):
     """if there are no trials and no entitlements active, there will be no refund."""
     response = billing_process_instance.generate_refunds(
         daily_expenses=daily_expenses,
+        agreement=agreement_data_no_trial[0],
         entitlement_id="FENT-2502-5308-4600",
         entitlement_start_date="",
         entitlement_termination_date="",
-        trial_start_date=None,
-        trial_end_date=None,
     )
     assert isinstance(response, list)
     assert len(response) == 0
 
 
-def test_generate_refunds_no_entitlement_end_date(daily_expenses,billing_process_instance):
+def test_generate_refunds_no_entitlement_end_date(
+    daily_expenses, billing_process_instance, agreement_data_with_trial
+):
     """if there is only a trial period and the entitlement_termination_date is missing,
     the billing date will be used as value for calculating the refund. The Trials get priority over
     entitlements."""
     response = billing_process_instance.generate_refunds(
         daily_expenses=daily_expenses,
+        agreement=agreement_data_with_trial[0],
         entitlement_id="FENT-2502-5308-4600",
         entitlement_start_date="2025-06-01T08:22:44.126636Z",
         entitlement_termination_date="",
-        trial_start_date=date(2025, 6, 1),
-        trial_end_date=date(2025, 6, 15),
     )
     assert isinstance(response, list)
     assert isinstance(response[0], Refund)
@@ -916,15 +893,14 @@ async def test_maybe_call_dry_run_false(billing_process_instance):
 @pytest.mark.asyncio()
 async def test_acquire_semaphore_acquires_and_releases(billing_process_instance):
     """the semaphore should be acquired and released once for each call"""
-    semaphore = AsyncMock()
+    semaphore = Mock()
+    semaphore.acquire = AsyncMock()
+    semaphore.release = Mock()
     billing_process_instance.semaphore = semaphore
 
-    async def inner():
-        semaphore.acquire.assert_awaited_once()
-        semaphore.release.assert_not_awaited()
-
     async with billing_process_instance.acquire_semaphore():
-        await inner()
+        semaphore.acquire.assert_awaited_once()
+        semaphore.release.assert_not_called()
 
     semaphore.release.assert_called_once()
 
@@ -1015,4 +991,83 @@ async def test_process_billing_with_multiple_authorizations(
     mock_mpt_client.close.assert_awaited_once()
 
 
-# -----------------------------------------------------------------------------------
+# # -----------------------------------------------------------------------------------
+# # - Test get_trials_days
+def test_get_trial_days(agreement_data_with_trial):
+    trial_start_to_match = date(2025, 6, 1)
+    trial_end_to_match = date(2025, 6, 15)
+
+    trial_start, trial_end = get_trial_dates(
+        agreement_data_with_trial[0],
+    )
+
+    assert trial_start == trial_start_to_match
+    assert trial_end == trial_end_to_match
+
+
+def test_get_trial_days_partial_overlap(billing_process_instance):
+    trial_start = date(2025, 5, 25)
+    trial_end = date(2025, 6, 5)
+    billing_start = date(2025, 6, 1)
+
+    trial_days, refund_from, refund_to = billing_process_instance.get_trial_days(
+        trial_start, trial_end
+    )
+
+    assert refund_from == billing_start
+    assert refund_to == trial_end
+    assert trial_days == set(range(1, 6))
+
+
+def test_get_trial_days_full_month(billing_process_instance):
+    trial_start = date(2025, 6, 1)
+    trial_end = date(2025, 6, 30)
+    billing_start = date(2025, 6, 1)
+
+    trial_days, refund_from, refund_to = billing_process_instance.get_trial_days(
+        trial_start, trial_end
+    )
+
+    assert refund_from == billing_start
+    assert refund_to == trial_end
+    assert trial_days == set(range(1, 31))
+
+
+def test_get_trial_days_no_trial(billing_process_instance):
+    trial_days, trial_refund_from, trial_refund_to = billing_process_instance.get_trial_days(
+        None, None
+    )
+
+    assert trial_days is None
+    assert trial_refund_from is None
+    assert trial_refund_to is None
+
+
+# # -----------------------------------------------------------------------------------
+# # - Test command
+@pytest.mark.parametrize(
+    "opts",
+    [
+        {"year": 2025, "month": 8, "dry_run": True},
+        {"year": 2024, "month": 12, "dry_run": False, "authorization": "AUTH123"},
+    ],
+)
+def test_handle_run_command(monkeypatch, opts):
+    fake_coro_obj = object()
+    process_billing_mock = Mock(return_value=fake_coro_obj)
+    asyncio_run_mock = Mock()
+
+    monkeypatch.setattr(mod, "process_billing", process_billing_mock)
+    monkeypatch.setattr(mod.asyncio, "run", asyncio_run_mock)
+
+    Command().handle(**opts)
+
+    expected_auth = opts.get("authorization")
+    process_billing_mock.assert_called_once_with(
+        opts["year"],
+        opts["month"],
+        authorization_id=expected_auth,
+        dry_run=opts["dry_run"],
+    )
+
+    asyncio_run_mock.assert_called_once_with(fake_coro_obj)
