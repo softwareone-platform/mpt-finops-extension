@@ -1587,82 +1587,94 @@ def create_journal_response():
 
 @pytest.fixture()
 def existing_journal_file_response():
-    return [
-        {
-            "id": "BJO-9000-4019",
-            "name": "June 2025 Charges",
-            "externalIds": {
-                "vendor": "202506",
-            },
-            "status": "Draft",
-            "vendor": {
-                "id": "ACC-3102-8586",
-                "type": "Vendor",
-                "status": "Active",
-                "name": "FinOps for Cloud",
-                "icon": "/v1/accounts/accounts/ACC-3102-8586/icon",
-            },
-            "owner": {
-                "id": "SEL-7032-1456",
-                "externalId": "US",
-                "name": "SoftwareONE Inc.",
-                "icon": "/v1/accounts/sellers/SEL-7032-1456/icon",
-            },
-            "product": {
-                "id": "PRD-2426-7318",
-                "name": "FinOps for Cloud",
-                "externalIds": {
-                    "operations": "adsasadsa",
-                },
-                "icon": "/v1/catalog/products/PRD-2426-7318/icon",
-                "status": "Published",
-            },
-            "authorization": {
-                "id": "AUT-5305-9928",
-                "name": "asdasdsa",
-                "currency": "USD",
-            },
-            "dueDate": "2025-07-01T00:00:00.000Z",
-            "price": {
-                "currency": "USD",
-                "totalPP": 0.00000,
-            },
-            "upload": {
-                "total": 0,
-                "split": 0,
-                "ready": 0,
-                "error": 0,
-            },
+    return {
+        "$meta": {
+            "pagination": {"offset": 0, "limit": 10, "total": 1},
+            "omitted": ["processing", "audit"],
         },
-    ]
+        "data": [
+            {
+                "id": "BJO-9000-4019",
+                "name": "June 2025 Charges",
+                "externalIds": {
+                    "vendor": "202506",
+                },
+                "status": "Draft",
+                "vendor": {
+                    "id": "ACC-3102-8586",
+                    "type": "Vendor",
+                    "status": "Active",
+                    "name": "FinOps for Cloud",
+                    "icon": "/v1/accounts/accounts/ACC-3102-8586/icon",
+                },
+                "owner": {
+                    "id": "SEL-7032-1456",
+                    "externalId": "US",
+                    "name": "SoftwareONE Inc.",
+                    "icon": "/v1/accounts/sellers/SEL-7032-1456/icon",
+                },
+                "product": {
+                    "id": "PRD-2426-7318",
+                    "name": "FinOps for Cloud",
+                    "externalIds": {
+                        "operations": "adsasadsa",
+                    },
+                    "icon": "/v1/catalog/products/PRD-2426-7318/icon",
+                    "status": "Published",
+                },
+                "authorization": {
+                    "id": "AUT-5305-9928",
+                    "name": "asdasdsa",
+                    "currency": "USD",
+                },
+                "dueDate": "2025-07-01T00:00:00.000Z",
+                "price": {
+                    "currency": "USD",
+                    "totalPP": 0.00000,
+                },
+                "upload": {
+                    "total": 0,
+                    "split": 0,
+                    "ready": 0,
+                    "error": 0,
+                },
+            },
+        ],
+    }
 
 
 @pytest.fixture()
 def journal_attachment_response():
-    return [
-        {
-            "id": "JOA-5985-1983",
-            "name": "charge_file.json",
-            "journal": {
-                "id": "BJO-9000-4019",
-                "name": "June 2025 Charges",
-                "dueDate": "2025-07-01T00:00:00.000Z",
-            },
-            "vendor": {
-                "id": "ACC-3102-8586",
-                "type": "Vendor",
-                "status": "Active",
-                "name": "FinOps for Cloud",
-                "icon": "/v1/accounts/accounts/ACC-3102-8586/icon",
-            },
-            "type": "Attachment",
-            "filename": "charge_file.json",
-            "size": 2981,
-            "contentType": "application/json",
-            "description": "Conversion Rate",
-            "isDeleted": False,
+    return {
+        "$meta": {
+            "pagination": {"offset": 0, "limit": 10, "total": 1},
+            "omitted": ["processing", "audit"],
         },
-    ]
+        "data": [
+            {
+                "id": "JOA-5985-1983",
+                "name": "charge_file.json",
+                "journal": {
+                    "id": "BJO-9000-4019",
+                    "name": "June 2025 Charges",
+                    "dueDate": "2025-07-01T00:00:00.000Z",
+                },
+                "vendor": {
+                    "id": "ACC-3102-8586",
+                    "type": "Vendor",
+                    "status": "Active",
+                    "name": "FinOps for Cloud",
+                    "icon": "/v1/accounts/accounts/ACC-3102-8586/icon",
+                },
+                "type": "Attachment",
+                "filename": "charge_file.json",
+                "size": 2981,
+                "contentType": "application/json",
+                "description": "Conversion Rate",
+                "isDeleted": False,
+            },
+        ],
+    }
 
 
 @pytest.fixture()
@@ -1994,116 +2006,208 @@ def organization_data():
 
 
 @pytest.fixture()
-def agreement_details():
-    return [
-        {
-            "id": "AGR-4985-4034-6503",
-            "status": "Active",
-            "listing": {
-                "id": "LST-9168-7963",
-            },
-            "authorization": {
+def catalog_authorizations():
+    return {
+        "$meta": {"pagination": {"offset": 0, "limit": 10, "total": 1}, "omitted": ["audit"]},
+        "data": [
+            {
                 "id": "AUT-5305-9928",
-                "name": "SoftwareOne FinOps for Cloud (USD)",
-                "currency": "USD",
-            },
-            "vendor": {
-                "id": "ACC-3805-2089",
-                "type": "Vendor",
-                "status": "Active",
-                "name": "SoftwareOne Vendor",
-                "icon": "/v1/accounts/accounts/ACC-3805-2089/icon",
-            },
-            "client": {
-                "id": "ACC-5809-3083",
-                "type": "Client",
-                "status": "Active",
-                "name": "Area302 (Client)",
-                "icon": "/v1/accounts/accounts/ACC-5809-3083/icon",
-            },
-            "price": {
-                "PPxY": 0.00000,
-                "PPxM": 0.00000,
-                "currency": "USD",
-            },
-            "template": {
-                "id": "TPL-7208-0459-0003",
-                "name": "Default",
-            },
-            "name": "SoftwareOne FinOps for Cloud for Area302 (Client)",
-            "parameters": {
-                "ordering": [
-                    {
-                        "id": "PAR-7208-0459-0004",
-                        "externalId": "organizationName",
-                        "name": "Organization Name",
-                        "type": "SingleLineText",
-                        "phase": "Order",
-                        "displayValue": "PL Organization",
-                        "value": "PL Organization",
-                    },
-                    {
-                        "id": "PAR-7208-0459-0005",
-                        "externalId": "adminContact",
-                        "name": "Administrator",
-                        "type": "Contact",
-                        "phase": "Order",
-                        "displayValue": "PL NNN pavel.lonkin@softwareone.com",
-                        "value": {
-                            "firstName": "PL",
-                            "lastName": "NNN",
-                            "email": "pavel.lonkin@softwareone.com",
-                            "phone": None,
-                        },
-                    },
-                    {
-                        "id": "PAR-7208-0459-0006",
-                        "externalId": "currency",
-                        "name": "Currency",
-                        "type": "DropDown",
-                        "phase": "Order",
-                        "displayValue": "EUR",
-                        "value": "EUR",
-                    },
-                ],
-                "fulfillment": [
-                    {
-                        "id": "PAR-7208-0459-0007",
-                        "externalId": "dueDate",
-                        "name": "Due Date",
-                        "type": "Date",
-                        "phase": "Fulfillment",
-                    },
-                ],
-            },
-            "licensee": {
-                "id": "LCE-3603-9310-4566",
-                "name": "Adobe Licensee 302",
-            },
-            "buyer": {
-                "id": "BUY-0280-5606",
-                "name": "Rolls-Royce Corporation",
-                "icon": "/v1/accounts/buyers/BUY-0280-5606/icon",
-            },
-            "seller": {
-                "id": "SEL-7282-9889",
-                "externalId": "78ADB9DA-BC69-4CBF-BAA0-CDBC28619EF7",
-                "name": "SoftwareOne, Inc.",
-                "icon": "/v1/accounts/sellers/SEL-7282-9889/icon",
-            },
-            "product": {
-                "id": "PRD-7208-0459",
-                "name": "SoftwareOne FinOps for Cloud",
+                "name": "asdasdsa",
                 "externalIds": {},
-                "icon": "/v1/catalog/products/PRD-7208-0459/icon",
-                "status": "Published",
-            },
-            "externalIds": {
-                "client": "",
-                "vendor": "FORG-6649-3383-1832",
-            },
-        }
-    ]
+                "currency": "USD",
+                "notes": "",
+                "product": {
+                    "id": "PRD-2426-7318",
+                    "name": "FinOps for Cloud",
+                    "externalIds": {"operations": "adsasadsa"},
+                    "icon": "/v1/catalog/products/PRD-2426-7318/icon",
+                    "status": "Published",
+                },
+                "vendor": {
+                    "id": "ACC-3102-8586",
+                    "type": "Vendor",
+                    "status": "Active",
+                    "name": "FinOps for Cloud",
+                    "icon": "/v1/accounts/accounts/ACC-3102-8586/icon",
+                },
+                "owner": {
+                    "id": "SEL-7032-1456",
+                    "externalId": "US",
+                    "name": "SoftwareONE Inc.",
+                    "icon": "/v1/accounts/sellers/SEL-7032-1456/icon",
+                },
+                "statistics": {"subscriptions": 7, "agreements": 12, "sellers": 2, "listings": 2},
+                "journal": {"firstInvoiceDate": "2025-02-01T00:00:00.000Z", "frequency": "1m"},
+                "eligibility": {"client": True, "partner": False},
+            }
+        ],
+    }
+
+
+@pytest.fixture()
+def catalog_authorization():
+    return {
+        "id": "AUT-5305-9928",
+        "name": "asdasdsa",
+        "externalIds": {},
+        "currency": "USD",
+        "notes": "",
+        "product": {
+            "id": "PRD-2426-7318",
+            "name": "FinOps for Cloud",
+            "externalIds": {"operations": "adsasadsa"},
+            "icon": "/v1/catalog/products/PRD-2426-7318/icon",
+            "status": "Published",
+        },
+        "vendor": {
+            "id": "ACC-3102-8586",
+            "type": "Vendor",
+            "status": "Active",
+            "name": "FinOps for Cloud",
+            "icon": "/v1/accounts/accounts/ACC-3102-8586/icon",
+        },
+        "owner": {
+            "id": "SEL-7032-1456",
+            "externalId": "US",
+            "name": "SoftwareONE Inc.",
+            "icon": "/v1/accounts/sellers/SEL-7032-1456/icon",
+        },
+        "statistics": {"subscriptions": 7, "agreements": 12, "sellers": 2, "listings": 2},
+        "journal": {"firstInvoiceDate": "2025-02-01T00:00:00.000Z", "frequency": "1m"},
+        "eligibility": {"client": True, "partner": False},
+        "audit": {
+            "created": {
+                "at": "2024-10-23T15:39:19.138Z",
+                "by": {"id": "USR-6476-8245", "name": "Francesco Faraone"},
+            }
+        },
+    }
+
+
+@pytest.fixture()
+def agreements():
+    return {
+        "$meta": {
+            "pagination": {"offset": 0, "limit": 1000, "total": 1},
+            "omitted": [
+                "lines",
+                "assets",
+                "subscriptions",
+                "split",
+                "termsAndConditions",
+                "certificates",
+            ],
+        },
+        "data": [
+            {
+                "id": "AGR-4985-4034-6503",
+                "status": "Active",
+                "listing": {
+                    "id": "LST-9168-7963",
+                },
+                "authorization": {
+                    "id": "AUT-5305-9928",
+                    "name": "SoftwareOne FinOps for Cloud (USD)",
+                    "currency": "USD",
+                },
+                "vendor": {
+                    "id": "ACC-3805-2089",
+                    "type": "Vendor",
+                    "status": "Active",
+                    "name": "SoftwareOne Vendor",
+                    "icon": "/v1/accounts/accounts/ACC-3805-2089/icon",
+                },
+                "client": {
+                    "id": "ACC-5809-3083",
+                    "type": "Client",
+                    "status": "Active",
+                    "name": "Area302 (Client)",
+                    "icon": "/v1/accounts/accounts/ACC-5809-3083/icon",
+                },
+                "price": {
+                    "PPxY": 0.00000,
+                    "PPxM": 0.00000,
+                    "currency": "USD",
+                },
+                "template": {
+                    "id": "TPL-7208-0459-0003",
+                    "name": "Default",
+                },
+                "name": "SoftwareOne FinOps for Cloud for Area302 (Client)",
+                "parameters": {
+                    "ordering": [
+                        {
+                            "id": "PAR-7208-0459-0004",
+                            "externalId": "organizationName",
+                            "name": "Organization Name",
+                            "type": "SingleLineText",
+                            "phase": "Order",
+                            "displayValue": "PL Organization",
+                            "value": "PL Organization",
+                        },
+                        {
+                            "id": "PAR-7208-0459-0005",
+                            "externalId": "adminContact",
+                            "name": "Administrator",
+                            "type": "Contact",
+                            "phase": "Order",
+                            "displayValue": "PL NNN pavel.lonkin@softwareone.com",
+                            "value": {
+                                "firstName": "PL",
+                                "lastName": "NNN",
+                                "email": "pavel.lonkin@softwareone.com",
+                                "phone": None,
+                            },
+                        },
+                        {
+                            "id": "PAR-7208-0459-0006",
+                            "externalId": "currency",
+                            "name": "Currency",
+                            "type": "DropDown",
+                            "phase": "Order",
+                            "displayValue": "EUR",
+                            "value": "EUR",
+                        },
+                    ],
+                    "fulfillment": [
+                        {
+                            "id": "PAR-7208-0459-0007",
+                            "externalId": "dueDate",
+                            "name": "Due Date",
+                            "type": "Date",
+                            "phase": "Fulfillment",
+                        },
+                    ],
+                },
+                "licensee": {
+                    "id": "LCE-3603-9310-4566",
+                    "name": "Adobe Licensee 302",
+                },
+                "buyer": {
+                    "id": "BUY-0280-5606",
+                    "name": "Rolls-Royce Corporation",
+                    "icon": "/v1/accounts/buyers/BUY-0280-5606/icon",
+                },
+                "seller": {
+                    "id": "SEL-7282-9889",
+                    "externalId": "78ADB9DA-BC69-4CBF-BAA0-CDBC28619EF7",
+                    "name": "SoftwareOne, Inc.",
+                    "icon": "/v1/accounts/sellers/SEL-7282-9889/icon",
+                },
+                "product": {
+                    "id": "PRD-7208-0459",
+                    "name": "SoftwareOne FinOps for Cloud",
+                    "externalIds": {},
+                    "icon": "/v1/catalog/products/PRD-7208-0459/icon",
+                    "status": "Published",
+                },
+                "externalIds": {
+                    "client": "",
+                    "vendor": "FORG-6649-3383-1832",
+                },
+            }
+        ],
+    }
 
 
 @pytest.fixture()
@@ -2490,9 +2594,9 @@ def org_mock_generator_agr_000(get_organizations):
 
 
 @pytest.fixture()
-def agr_mock_generator(agreement_details):
+def agr_mock_generator(agreements):
     async def _gen():
-        for agr in agreement_details:
+        for agr in agreements["data"]:
             yield agr
 
     return _gen()

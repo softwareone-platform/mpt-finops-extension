@@ -26,13 +26,13 @@ async def test_evaluate_journal_status_draft(
     """if a journal exists, it should return it as it is"""
     billing_process_instance.mpt_client = AsyncMock()
     billing_process_instance.mpt_client.get_journal = AsyncMock(
-        return_value=existing_journal_file_response[0]
+        return_value=existing_journal_file_response["data"][0]
     )
     with caplog.at_level(logging.INFO):
         result = await billing_process_instance.evaluate_journal_status(
             journal_external_id="202505",
         )
-        assert result == existing_journal_file_response[0]
+        assert result == existing_journal_file_response["data"][0]
     assert (
         "[AUT-5305-9928] Already found journal: BJO-9000-4019 with status Draft"
         in caplog.messages[0]
@@ -45,15 +45,15 @@ async def test_evaluate_journal_status_validated(
 ):
     """if a journal exists and its status is Validate, it should return the journal as it is"""
     billing_process_instance.mpt_client = AsyncMock()
-    existing_journal_file_response[0]["status"] = "Validated"
+    existing_journal_file_response["data"][0]["status"] = "Validated"
     billing_process_instance.mpt_client.get_journal = AsyncMock(
-        return_value=existing_journal_file_response[0]
+        return_value=existing_journal_file_response["data"][0]
     )
     with caplog.at_level(logging.INFO):
         result = await billing_process_instance.evaluate_journal_status(
             journal_external_id="202505",
         )
-        assert result == existing_journal_file_response[0]
+        assert result == existing_journal_file_response["data"][0]
     assert (
         "[AUT-5305-9928] Already found journal: BJO-9000-4019 with status Validated"
         in caplog.messages[0]
@@ -67,9 +67,9 @@ async def test_evaluate_journal_different_from_draft_and_not_validated(
     """if a journal exists and its status is != from Validated or Draft,
     it should raise a JournalStatusError"""
     billing_process_instance.mpt_client = AsyncMock()
-    existing_journal_file_response[0]["status"] = "Another Status"
+    existing_journal_file_response["data"][0]["status"] = "Another Status"
     billing_process_instance.mpt_client.get_journal = AsyncMock(
-        return_value=existing_journal_file_response[0]
+        return_value=existing_journal_file_response["data"][0]
     )
     with caplog.at_level(logging.WARNING):
         with pytest.raises(JournalStatusError):
@@ -103,12 +103,12 @@ async def test_is_journal_validated_success(
 ):
     """if the given journal's status  is VALIDATED, it should return True"""
     billing_process_instance.mpt_client = AsyncMock()
-    existing_journal_file_response[0]["status"] = "Validated"
+    existing_journal_file_response["data"][0]["status"] = "Validated"
     billing_process_instance.mpt_client.get_journal_by_id = AsyncMock(
-        return_value=existing_journal_file_response[0]
+        return_value=existing_journal_file_response["data"][0]
     )
     result = await billing_process_instance.is_journal_status_validated(
-        journal_id=existing_journal_file_response[0]["id"]
+        journal_id=existing_journal_file_response["data"][0]["id"]
     )
     assert result is True
 
@@ -121,11 +121,11 @@ async def test_is_journal_validated_fail_and_retry(
     the function should retry for a number of 5 attempts and fails if no response is received"""
     billing_process_instance.mpt_client = AsyncMock()
     billing_process_instance.mpt_client.get_journal_by_id = AsyncMock(
-        return_value=existing_journal_file_response[0]
+        return_value=existing_journal_file_response["data"][0]
     )
     mocker.patch("asyncio.sleep", return_value=None)  # bypass real function's delay
     result = await billing_process_instance.is_journal_status_validated(
-        journal_id=existing_journal_file_response[0]["id"]
+        journal_id=existing_journal_file_response["data"][0]["id"]
     )
     assert result is False
     assert billing_process_instance.mpt_client.get_journal_by_id.call_count == 5
@@ -213,17 +213,17 @@ async def test_write_charges_file_many_agreements(
     mocker,
     billing_process_instance,
     patch_fetch_organizations,
-    agreement_details,
+    agreements,
     patch_fetch_organization_expenses,
     caplog,
 ):
     """if many agreements are provided for a given org,
     they will be skipped and no file will be written"""
-    agreement_details[0]["authorization"]["id"] = "AUT-5305-9928"
-    agreement_details.append(agreement_details[0])
+    agreements["data"][0]["authorization"]["id"] = "AUT-5305-9928"
+    agreements["data"].append(agreements["data"][0])
 
     async def agr_mock_generator():
-        for agr in agreement_details:
+        for agr in agreements["data"]:
             yield agr
 
     with caplog.at_level(logging.INFO):
@@ -252,16 +252,16 @@ async def test_write_charges_file_different_auth_id(
     mocker,
     billing_process_instance,
     patch_fetch_organizations,
-    agreement_details,
+    agreements,
     patch_fetch_organization_expenses,
     caplog,
 ):
     """if the authorization's ID of a given agreement is different from the one defined, those
     agreements will be skipped and no file will be written"""
-    agreement_details[0]["authorization"]["id"] = "AUT-5305-9955"
+    agreements["data"][0]["authorization"]["id"] = "AUT-5305-9955"
 
     async def agr_mock_generator():
-        for agr in agreement_details:
+        for agr in agreements["data"]:
             yield agr
 
     with caplog.at_level(logging.INFO):
@@ -296,7 +296,7 @@ async def test_attach_exchange_rates_with_existing_attachment(
     billing_process_instance.mpt_client = AsyncMock()
 
     billing_process_instance.mpt_client.fetch_journal_attachment = AsyncMock(
-        return_value=journal_attachment_response[0]
+        return_value=journal_attachment_response["data"][0]
     )
     billing_process_instance.mpt_client.delete_journal_attachment = AsyncMock(return_value={})
     billing_process_instance.mpt_client.create_journal_attachment = AsyncMock(
@@ -783,7 +783,7 @@ async def test_process_success(billing_process_instance, existing_journal_file_r
     billing_process_instance.mpt_client.count_active_agreements = AsyncMock(return_value=2)
     billing_process_instance.write_charges_file = AsyncMock(return_value=True)
     billing_process_instance.mpt_client.get_journal = AsyncMock(
-        return_value=existing_journal_file_response[0]
+        return_value=existing_journal_file_response["data"][0]
     )
     billing_process_instance.complete_journal_process = AsyncMock(return_value=None)
     await billing_process_instance.process()
@@ -800,7 +800,7 @@ async def test_process_no_charges_written(billing_process_instance, existing_jou
     billing_process_instance.mpt_client.count_active_agreements = AsyncMock(return_value=2)
     billing_process_instance.write_charges_file = AsyncMock(return_value=False)
     billing_process_instance.mpt_client.get_journal = AsyncMock(
-        return_value=existing_journal_file_response[0]
+        return_value=existing_journal_file_response["data"][0]
     )
     billing_process_instance.complete_journal_process = AsyncMock(return_value=None)
     await billing_process_instance.process()
