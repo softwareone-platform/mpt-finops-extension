@@ -1,141 +1,25 @@
 import logging
 
-import pymsteams
 import pytest
-from mpt_extension_sdk.mpt_http.mpt import NotifyCategories
+from adaptive_cards import card_types as ct
+from django.conf import settings
+from pytest_httpx import HTTPXMock
+from pytest_mock import MockerFixture
 
 from ffc.flows.order import OrderContext
 from ffc.notifications import (
-    Button,
-    FactsSection,
+    NotificationDetails,
+    NotifyCategories,
     dateformat,
     mpt_notify,
     notify_unhandled_exception_in_teams,
     send_error,
     send_exception,
+    send_info,
     send_mpt_notification,
     send_notification,
     send_warning,
 )
-
-
-def test_send_notification_full(mocker, settings):
-    settings.EXTENSION_CONFIG = {
-        "MSTEAMS_WEBHOOK_URL": "https://teams.webhook",
-    }
-    mocked_message = mocker.MagicMock()
-    mocked_section = mocker.MagicMock()
-
-    mocked_card = mocker.patch(
-        "ffc.notifications.pymsteams.connectorcard",
-        return_value=mocked_message,
-    )
-
-    mocker.patch(
-        "ffc.notifications.pymsteams.cardsection",
-        return_value=mocked_section,
-    )
-
-    button = Button("button-label", "button-url")
-    facts_section = FactsSection("section-title", {"key": "value"})
-
-    send_notification(
-        "not-title",
-        "not-text",
-        "not-color",
-        button=button,
-        facts=facts_section,
-    )
-
-    mocked_message.title.assert_called_once_with("not-title")
-    mocked_message.text.assert_called_once_with("not-text")
-    mocked_message.color.assert_called_once_with("not-color")
-    mocked_message.addLinkButton.assert_called_once_with(button.label, button.url)
-    mocked_section.title.assert_called_once_with(facts_section.title)
-    mocked_section.addFact.assert_called_once_with(
-        list(facts_section.data.keys())[0], list(facts_section.data.values())[0]
-    )
-    mocked_message.addSection.assert_called_once_with(mocked_section)
-    mocked_message.send.assert_called_once()
-    mocked_card.assert_called_once_with("https://teams.webhook")
-
-
-def test_send_notification_simple(mocker, settings):
-    settings.EXTENSION_CONFIG = {
-        "MSTEAMS_WEBHOOK_URL": "https://teams.webhook",
-    }
-    mocked_message = mocker.MagicMock()
-
-    mocker.patch(
-        "ffc.notifications.pymsteams.connectorcard",
-        return_value=mocked_message,
-    )
-
-    mocked_cardsection = mocker.patch(
-        "ffc.notifications.pymsteams.cardsection",
-    )
-
-    send_notification(
-        "not-title",
-        "not-text",
-        "not-color",
-    )
-
-    mocked_message.title.assert_called_once_with("not-title")
-    mocked_message.text.assert_called_once_with("not-text")
-    mocked_message.color.assert_called_once_with("not-color")
-    mocked_message.addLinkButton.assert_not_called()
-    mocked_cardsection.assert_not_called()
-    mocked_message.send.assert_called_once()
-
-
-def test_send_notification_exception(mocker, settings, caplog):
-    settings.EXTENSION_CONFIG = {
-        "MSTEAMS_WEBHOOK_URL": "https://teams.webhook",
-    }
-    mocked_message = mocker.MagicMock()
-    mocked_message.send.side_effect = pymsteams.TeamsWebhookException("error")
-
-    mocker.patch(
-        "ffc.notifications.pymsteams.connectorcard",
-        return_value=mocked_message,
-    )
-
-    with caplog.at_level(logging.ERROR):
-        send_notification(
-            "not-title",
-            "not-text",
-            "not-color",
-        )
-
-    assert "Error sending notification to MSTeams!" in caplog.text
-
-
-@pytest.mark.parametrize(
-    ("function", "color", "icon"),
-    [
-        (send_warning, "#ffa500", "\u2622"),
-        (send_error, "#df3422", "\U0001f4a3"),
-        (send_exception, "#541c2e", "\U0001f525"),
-    ],
-)
-def test_send_others(mocker, function, color, icon):
-    mocked_send_notification = mocker.patch(
-        "ffc.notifications.send_notification",
-    )
-
-    mocked_button = mocker.MagicMock()
-    mocked_facts_section = mocker.MagicMock()
-
-    function("title", "text", button=mocked_button, facts=mocked_facts_section)
-
-    mocked_send_notification.assert_called_once_with(
-        f"{icon} title",
-        "text",
-        color,
-        button=mocked_button,
-        facts=mocked_facts_section,
-    )
 
 
 def test_mpt_notify(mocker, mpt_client):
@@ -206,7 +90,11 @@ def test_dateformat():
 
 
 def test_notify_unhandled_exception_in_teams(mocker):
-    mocked_send_exc = mocker.patch("ffc.notifications.send_exception")
+    mock_run = mocker.patch("ffc.notifications.asyncio.run")
+    mock_send_exc_coro = mocker.MagicMock()
+    mocked_send_exc = mocker.MagicMock(return_value=mock_send_exc_coro)
+
+    mocker.patch("ffc.notifications.send_exception", mocked_send_exc)
     notify_unhandled_exception_in_teams(
         "validation",
         "ORD-0000",
@@ -219,6 +107,7 @@ def test_notify_unhandled_exception_in_teams(mocker):
         "of the order **ORD-0000**:\n\n"
         "```exception-traceback```",
     )
+    mock_run.assert_called_once_with(mock_send_exc_coro)
 
 
 def test_send_mpt_notification(mocker, mpt_client, order_factory):
@@ -246,3 +135,201 @@ def test_send_mpt_notification(mocker, mpt_client, order_factory):
         },
     )
     mock_get_rendered_template.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    ("function", "color", "icon"),
+    [
+        (send_info, ct.Colors.ACCENT, "\U0001f44d"),
+        (send_warning, ct.Colors.WARNING, "\u2622"),
+        (send_error, ct.Colors.ATTENTION, "\U0001f4a3"),
+        (send_exception, ct.Colors.ATTENTION, "\U0001f525"),
+    ],
+)
+async def test_send_others(mocker, function, color, icon):
+    mocked_send_notification = mocker.patch(
+        "ffc.notifications.send_notification",
+    )
+
+    await function("title", "text", details=None, open_url=None)
+
+    mocked_send_notification.assert_awaited_once_with(
+        f"{icon} title",
+        "text",
+        title_color=color,
+        details=None,
+        open_url=None,
+    )
+
+
+async def test_send_notification_full(httpx_mock: HTTPXMock, mocker: MockerFixture):
+    httpx_mock.add_response(
+        method="POST",
+        url=settings.EXTENSION_CONFIG["MSTEAMS_NOTIFICATIONS_WEBHOOKS_URL"],
+        status_code=202,
+        match_json={
+            "type": "message",
+            "attachments": [
+                {
+                    "contentType": "application/vnd.microsoft.card.adaptive",
+                    "content": {
+                        "type": "AdaptiveCard",
+                        "version": "1.4",
+                        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                        "body": [
+                            {
+                                "text": "Title",
+                                "type": "TextBlock",
+                                "color": "dark",
+                                "size": "large",
+                                "weight": "bolder",
+                            },
+                            {
+                                "text": "Text",
+                                "type": "TextBlock",
+                                "color": "default",
+                                "size": "small",
+                                "wrap": True,
+                            },
+                            {
+                                "type": "ColumnSet",
+                                "columns": [
+                                    {
+                                        "type": "Column",
+                                        "items": [
+                                            {
+                                                "text": "Header 1",
+                                                "type": "TextBlock",
+                                                "weight": "bolder",
+                                                "wrap": True,
+                                            },
+                                            {
+                                                "text": "Row 1 Col 1",
+                                                "type": "TextBlock",
+                                                "color": "default",
+                                                "wrap": True,
+                                            },
+                                            {
+                                                "text": "Row 2 Col 1",
+                                                "type": "TextBlock",
+                                                "color": "accent",
+                                                "wrap": True,
+                                            },
+                                        ],
+                                        "width": "auto",
+                                    },
+                                    {
+                                        "type": "Column",
+                                        "items": [
+                                            {
+                                                "text": "Header 2",
+                                                "type": "TextBlock",
+                                                "weight": "bolder",
+                                                "wrap": True,
+                                            },
+                                            {
+                                                "text": "Row 1 Col 2",
+                                                "type": "TextBlock",
+                                                "color": "default",
+                                                "wrap": True,
+                                            },
+                                            {
+                                                "text": "Row 2 Col 2",
+                                                "type": "TextBlock",
+                                                "color": "accent",
+                                                "wrap": True,
+                                            },
+                                        ],
+                                        "width": "auto",
+                                    },
+                                ],
+                            },
+                            {
+                                "title": "Open",
+                                "mode": "primary",
+                                "url": "https://example.com",
+                                "type": "Action.OpenUrl",
+                            },
+                        ],
+                        "msteams": {"width": "Full"},
+                    },
+                }
+            ],
+        },
+    )
+
+    await send_notification(
+        "Title",
+        "Text",
+        title_color=ct.Colors.DARK,
+        open_url="https://example.com",
+        details=NotificationDetails(
+            header=("Header 1", "Header 2"),
+            rows=[("Row 1 Col 1", "Row 1 Col 2"), ("Row 2 Col 1", "Row 2 Col 2")],
+        ),
+    )
+
+
+async def test_send_notification_simple(httpx_mock: HTTPXMock, mocker: MockerFixture):
+    httpx_mock.add_response(
+        method="POST",
+        url=settings.EXTENSION_CONFIG["MSTEAMS_NOTIFICATIONS_WEBHOOKS_URL"],
+        status_code=202,
+        match_json={
+            "type": "message",
+            "attachments": [
+                {
+                    "contentType": "application/vnd.microsoft.card.adaptive",
+                    "content": {
+                        "type": "AdaptiveCard",
+                        "version": "1.4",
+                        "$schema": "http://adaptivecards.io/schemas/adaptive-card.json",
+                        "body": [
+                            {
+                                "text": "Title",
+                                "type": "TextBlock",
+                                "color": "dark",
+                                "size": "large",
+                                "weight": "bolder",
+                            },
+                            {
+                                "text": "Text",
+                                "type": "TextBlock",
+                                "color": "default",
+                                "size": "small",
+                                "wrap": True,
+                            },
+                        ],
+                        "msteams": {"width": "Full"},
+                    },
+                }
+            ],
+        },
+    )
+
+    await send_notification(
+        "Title",
+        "Text",
+        title_color=ct.Colors.DARK,
+    )
+
+
+async def test_send_notification_error(
+    caplog: pytest.LogCaptureFixture,
+    httpx_mock: HTTPXMock,
+    mocker: MockerFixture,
+):
+    httpx_mock.add_response(
+        method="POST",
+        url=settings.EXTENSION_CONFIG["MSTEAMS_NOTIFICATIONS_WEBHOOKS_URL"],
+        status_code=500,
+        content=b"Internal Server Error",
+    )
+
+    with caplog.at_level("ERROR"):
+        await send_notification(
+            "Title",
+            "Text",
+            title_color=ct.Colors.DARK,
+        )
+    assert ("Failed to send notification to MSTeams: 500 - Internal Server Error") in caplog.text

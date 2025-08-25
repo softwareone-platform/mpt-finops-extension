@@ -1,20 +1,27 @@
+import asyncio
 import functools
 import logging
 import os
-from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
 
-import pymsteams
+import httpx
+from adaptive_cards import card_types as ct
+from adaptive_cards.actions import ActionOpenUrl
+from adaptive_cards.card import AdaptiveCard
+from adaptive_cards.containers import Column, ColumnSet
+from adaptive_cards.elements import TextBlock
 from django.conf import settings
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from markdown_it import MarkdownIt
 from mpt_extension_sdk.mpt_http.base import MPTClient
-from mpt_extension_sdk.mpt_http.mpt import NotifyCategories, get_rendered_template, notify
+from mpt_extension_sdk.mpt_http.mpt import get_rendered_template, notify
 
 from ffc.flows.order import OrderContext
 from ffc.parameters import PARAM_CONTACT, get_ordering_parameter
 
 logger = logging.getLogger(__name__)
+NotifyCategories = Enum("NotifyCategories", settings.MPT_NOTIFY_CATEGORIES)
 
 
 def dateformat(date_string):
@@ -32,90 +39,6 @@ env = Environment(
 )
 
 env.filters["dateformat"] = dateformat
-
-
-@dataclass
-class Button:
-    label: str
-    url: str
-
-
-@dataclass
-class FactsSection:
-    title: str
-    data: dict
-
-
-def send_notification(
-    title: str,
-    text: str,
-    color: str,
-    button: Button | None = None,
-    facts: FactsSection | None = None,
-) -> None:  # pragma: no cover
-    message = pymsteams.connectorcard(settings.EXTENSION_CONFIG["MSTEAMS_WEBHOOK_URL"])
-    message.color(color)
-    message.title(title)
-    message.text(text)
-    if button:
-        message.addLinkButton(button.label, button.url)
-    if facts:
-        facts_section = pymsteams.cardsection()
-        facts_section.title(facts.title)
-        for key, value in facts.data.items():
-            facts_section.addFact(key, value)
-        message.addSection(facts_section)
-
-    try:
-        message.send()
-    except pymsteams.TeamsWebhookException:
-        logger.exception("Error sending notification to MSTeams!")
-
-
-def send_warning(
-    title: str,
-    text: str,
-    button: Button | None = None,
-    facts: FactsSection | None = None,
-) -> None:  # pragma: no cover
-    send_notification(
-        f"\u2622 {title}",
-        text,
-        "#ffa500",
-        button=button,
-        facts=facts,
-    )
-
-
-def send_error(
-    title: str,
-    text: str,
-    button: Button | None = None,
-    facts: FactsSection | None = None,
-) -> None:  # pragma: no cover
-    send_notification(
-        f"\U0001f4a3 {title}",
-        text,
-        "#df3422",
-        button=button,
-        facts=facts,
-    )
-
-
-def send_exception(
-    title: str,
-    text: str,
-    button: Button | None = None,
-    facts: FactsSection | None = None,
-) -> None:  # pragma: no cover
-    send_notification(
-        f"\U0001f525 {title}",
-        text,
-        "#541c2e",
-        button=button,
-        facts=facts,
-    )
-
 
 def mpt_notify(
     mpt_client,
@@ -209,9 +132,168 @@ def send_mpt_notification(client: MPTClient, order_context: type[OrderContext]) 
 
 @functools.cache
 def notify_unhandled_exception_in_teams(process, order_id, traceback):  # pragma: no cover
-    send_exception(
-        f"Order {process} unhandled exception!",
-        f"An unhandled exception has been raised while performing {process} "
-        f"of the order **{order_id}**:\n\n"
-        f"```{traceback}```",
+    asyncio.run(
+        send_exception(
+            f"Order {process} unhandled exception!",
+            f"An unhandled exception has been raised while performing {process} "
+            f"of the order **{order_id}**:\n\n"
+            f"```{traceback}```",
+        )
+    )
+
+
+
+class NotificationDetails:
+    def __init__(self, header: tuple[str, ...], rows: list[tuple[str, ...]]):
+        if not all(len(t) == len(header) for t in rows):
+            raise ValueError("All rows must have the same number of columns as the header.")
+        self.header = header
+        self.rows = rows
+
+    def to_column_set(self) -> ColumnSet:
+        columns = []
+        for title in self.header:
+            column = Column(
+                width="auto",
+                items=[
+                    TextBlock(
+                        text=title,
+                        weight=ct.FontWeight.BOLDER,
+                        wrap=True,
+                    )
+                ],
+            )
+            columns.append(column)
+
+        column_set = ColumnSet(columns=columns)
+        for row_idx, row in enumerate(self.rows):
+            for col_idx, item in enumerate(row):
+                columns[col_idx].items.append(
+                    TextBlock(
+                        text=item,
+                        wrap=True,
+                        color=ct.Colors.DEFAULT if row_idx % 2 == 0 else ct.Colors.ACCENT,
+                    )
+                )
+
+        return column_set
+
+
+async def send_notification(
+    title: str,
+    text: str,
+    title_color: ct.Colors = ct.Colors.DEFAULT,
+    details: NotificationDetails | None = None,
+    open_url: str | None = None,
+) -> None:
+    if not settings.EXTENSION_CONFIG.get("MSTEAMS_NOTIFICATIONS_WEBHOOKS_URL"):  # pragma: no cover
+        logger.warning("MSTeams notifications are disabled.")
+        return
+
+    card_items = [
+        TextBlock(
+            text=title,
+            size=ct.FontSize.LARGE,
+            weight=ct.FontWeight.BOLDER,
+            color=title_color,
+        ),
+        TextBlock(
+            text=text,
+            wrap=True,
+            size=ct.FontSize.SMALL,
+            color=ct.Colors.DEFAULT,
+        ),
+    ]
+    if details:
+        card_items.append(details.to_column_set())
+
+    if open_url:
+        card_items.append(
+            ActionOpenUrl(
+                title="Open",
+                url=open_url,
+            )
+        )
+
+    version: str = "1.4"
+    card: AdaptiveCard = AdaptiveCard.new().version(version).add_items(card_items).create()
+    card.msteams = {"width": "Full"}
+    message = {
+        "type": "message",
+        "attachments": [
+            {
+                "contentType": "application/vnd.microsoft.card.adaptive",
+                "content": card.to_dict(),
+            }
+        ],
+    }
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            settings.EXTENSION_CONFIG["MSTEAMS_NOTIFICATIONS_WEBHOOKS_URL"],
+            json=message,
+            headers={"Content-Type": "application/json"},
+        )
+        if response.status_code != 202:
+            logger.error(
+                f"Failed to send notification to MSTeams: {response.status_code} - {response.text}"
+            )
+
+
+async def send_info(
+    title: str,
+    text: str,
+    details: NotificationDetails | None = None,
+    open_url: str | None = None,
+) -> None:
+    await send_notification(
+        f"\U0001f44d {title}",
+        text,
+        title_color=ct.Colors.ACCENT,
+        details=details,
+        open_url=open_url,
+    )
+
+
+async def send_warning(
+    title: str,
+    text: str,
+    details: NotificationDetails | None = None,
+    open_url: str | None = None,
+) -> None:
+    await send_notification(
+        f"\u2622 {title}",
+        text,
+        title_color=ct.Colors.WARNING,
+        details=details,
+        open_url=open_url,
+    )
+
+
+async def send_error(
+    title: str,
+    text: str,
+    details: NotificationDetails | None = None,
+    open_url: str | None = None,
+) -> None:
+    await send_notification(
+        f"\U0001f4a3 {title}",
+        text,
+        title_color=ct.Colors.ATTENTION,
+        details=details,
+        open_url=open_url,
+    )
+
+
+async def send_exception(
+    title: str,
+    text: str,
+    details: NotificationDetails | None = None,
+    open_url: str | None = None,
+) -> None:
+    await send_notification(
+        f"\U0001f525 {title}",
+        text,
+        title_color=ct.Colors.ATTENTION,
+        details=details,
+        open_url=open_url,
     )
