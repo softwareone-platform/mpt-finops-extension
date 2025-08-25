@@ -26,6 +26,13 @@ class Refund:
 
 
 @dataclass
+class TrialInfo:
+    trial_days: set[int] | None = None
+    refund_from: date | None = None
+    refund_to: date | None = None
+
+
+@dataclass
 class CurrencyConversionInfo:
     base_currency: str
     billing_currency: str

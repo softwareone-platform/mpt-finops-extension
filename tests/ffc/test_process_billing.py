@@ -10,7 +10,7 @@ import pytest
 
 from ffc.billing.dataclasses import AuthorizationProcessResult, CurrencyConversionInfo, Refund
 from ffc.billing.exceptions import ExchangeRatesClientError, JournalStatusError
-from ffc.process_billing import get_trial_dates
+from ffc.billing.process_billing import get_trial_dates
 
 MODULE_PATH = "ffc.management.commands.process_billing"
 mod = importlib.import_module(MODULE_PATH)
@@ -926,9 +926,9 @@ def test_build_filepath_formats_correctly(dry_run, billing_process_instance):
 
 
 @pytest.mark.asyncio()
-@patch("ffc.process_billing.MPTAsyncClient")
-@patch("ffc.process_billing.AuthorizationProcessor")
-@patch("ffc.process_billing.settings")
+@patch("ffc.billing.process_billing.MPTAsyncClient")
+@patch("ffc.billing.process_billing.AuthorizationProcessor")
+@patch("ffc.billing.process_billing.settings")
 async def test_process_billing_with_single_authorization(
     mock_settings, mock_processor_cls, mock_client_cls
 ):
@@ -945,7 +945,7 @@ async def test_process_billing_with_single_authorization(
     mock_processor = mock_processor_cls.return_value
     mock_processor.process = AsyncMock()
 
-    from ffc.process_billing import process_billing
+    from ffc.billing.process_billing import process_billing
 
     await process_billing(2025, 7, "AUTH1", dry_run=True)
 
@@ -955,9 +955,9 @@ async def test_process_billing_with_single_authorization(
 
 
 @pytest.mark.asyncio()
-@patch("ffc.process_billing.MPTAsyncClient")
-@patch("ffc.process_billing.AuthorizationProcessor")
-@patch("ffc.process_billing.settings")
+@patch("ffc.billing.process_billing.MPTAsyncClient")
+@patch("ffc.billing.process_billing.AuthorizationProcessor")
+@patch("ffc.billing.process_billing.settings")
 async def test_process_billing_with_multiple_authorizations(
     mock_settings, mock_processor_cls, mock_mpt_client_cls
 ):
@@ -980,7 +980,7 @@ async def test_process_billing_with_multiple_authorizations(
     mock_processor = mock_processor_cls.return_value
     mock_processor.process = AsyncMock()
 
-    from ffc.process_billing import process_billing
+    from ffc.billing.process_billing import process_billing
 
     await process_billing(2025, 7)
 
@@ -1009,13 +1009,11 @@ def test_get_trial_days_partial_overlap(billing_process_instance):
     trial_end = date(2025, 6, 5)
     billing_start = date(2025, 6, 1)
 
-    trial_days, refund_from, refund_to = billing_process_instance.get_trial_days(
-        trial_start, trial_end
-    )
+    trial_info = billing_process_instance.get_trial_days(trial_start, trial_end)
 
-    assert refund_from == billing_start
-    assert refund_to == trial_end
-    assert trial_days == set(range(1, 6))
+    assert trial_info.refund_from == billing_start
+    assert trial_info.refund_to == trial_end
+    assert trial_info.trial_days == set(range(1, 6))
 
 
 def test_get_trial_days_full_month(billing_process_instance):
@@ -1023,23 +1021,19 @@ def test_get_trial_days_full_month(billing_process_instance):
     trial_end = date(2025, 6, 30)
     billing_start = date(2025, 6, 1)
 
-    trial_days, refund_from, refund_to = billing_process_instance.get_trial_days(
-        trial_start, trial_end
-    )
+    trial_info = billing_process_instance.get_trial_days(trial_start, trial_end)
 
-    assert refund_from == billing_start
-    assert refund_to == trial_end
-    assert trial_days == set(range(1, 31))
+    assert trial_info.refund_from == billing_start
+    assert trial_info.refund_to == trial_end
+    assert trial_info.trial_days == set(range(1, 31))
 
 
 def test_get_trial_days_no_trial(billing_process_instance):
-    trial_days, trial_refund_from, trial_refund_to = billing_process_instance.get_trial_days(
-        None, None
-    )
+    trial_info = billing_process_instance.get_trial_days(None, None)
 
-    assert trial_days is None
-    assert trial_refund_from is None
-    assert trial_refund_to is None
+    assert trial_info.trial_days is None
+    assert trial_info.refund_from is None
+    assert trial_info.refund_to is None
 
 
 # # -----------------------------------------------------------------------------------
