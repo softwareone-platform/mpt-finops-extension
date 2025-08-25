@@ -26,6 +26,13 @@ class Refund:
 
 
 @dataclass
+class TrialInfo:
+    trial_days: set[int]
+    refund_from: date
+    refund_to: date
+
+
+@dataclass
 class CurrencyConversionInfo:
     base_currency: str
     billing_currency: str

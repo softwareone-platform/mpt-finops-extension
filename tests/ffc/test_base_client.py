@@ -1,37 +1,11 @@
-from collections.abc import Generator
-
 import httpx
 import pytest
 
 from ffc.clients.base import BaseAsyncAPIClient, PaginationSupportMixin
 
 
-class TestClientAuth(httpx.Auth):
-    def auth_flow(self, request: httpx.Request) -> Generator[httpx.Request, httpx.Response, None]:
-        request.headers["Authorization"] = "Bearer fake token"
-        yield request
-
-
-class TestClient(BaseAsyncAPIClient):
-    @property
-    def base_url(self) -> str:
-        return "https://local.local/v1"
-
-    @property
-    def auth(self):
-        return TestClientAuth()
-
-    def get_pagination_meta(self, response):
-        return response["meta"]["pagination"]
-
-    def get_page_data(self, response):
-        return response["data"]
-
-
 @pytest.mark.asyncio()
-async def test_collection_iterator_paginates(httpx_mock):
-    client = TestClient(limit=2)
-
+async def test_collection_iterator_paginates(httpx_mock, fake_apiclient):
     endpoint = "/catalog/authorizations"
     rql = "eq(mytestfield,'value')"
 
@@ -60,7 +34,7 @@ async def test_collection_iterator_paginates(httpx_mock):
     )
 
     items = []
-    async for item in client.collection_iterator(endpoint, rql=rql):
+    async for item in fake_apiclient.collection_iterator(endpoint, rql=rql):
         items.append(item)
 
     assert [item["id"] for item in items] == ["AUT-1111-1111", "AUT-2222-2222", "AUT-3333-3333"]
@@ -74,14 +48,12 @@ async def test_collection_iterator_paginates(httpx_mock):
     for r in reqs:
         assert r.headers["Authorization"] == "Bearer fake token"
 
-    await client.close()
-    assert client.httpx_client.is_closed
+    await fake_apiclient.close()
+    assert fake_apiclient.httpx_client.is_closed
 
 
 @pytest.mark.asyncio()
-async def test_collection_iterator_paginates_404(httpx_mock):
-    client = TestClient(limit=2)
-
+async def test_collection_iterator_paginates_404(httpx_mock, fake_apiclient):
     endpoint = "/catalog/authorizations"
     rql = "eq(mytestfield,'value')"
 
@@ -92,14 +64,14 @@ async def test_collection_iterator_paginates_404(httpx_mock):
     )
 
     with pytest.raises(httpx.HTTPStatusError):
-        await anext(client.collection_iterator(endpoint, rql=rql))
+        await anext(fake_apiclient.collection_iterator(endpoint, rql=rql))
     [req] = httpx_mock.get_requests()
     assert req.method == "GET"
     assert str(req.url) == f"https://local.local/v1/catalog/authorizations?{rql}&limit=2&offset=0"
     assert req.headers["Authorization"] == "Bearer fake token"
 
-    await client.close()
-    assert client.httpx_client.is_closed
+    await fake_apiclient.close()
+    assert fake_apiclient.httpx_client.is_closed
 
 
 def test_cannot_instantiate_paginationsupportmixin_directly():

@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, date, datetime
 from io import BytesIO
 from pathlib import Path
-from typing import Any
+from typing import Any, AsyncGenerator, Coroutine
 
 import aiofiles
 import aiofiles.os
@@ -22,6 +22,7 @@ from ffc.billing.dataclasses import (
     CurrencyConversionInfo,
     Datasource,
     Refund,
+    TrialInfo,
 )
 from ffc.billing.exceptions import ExchangeRatesClientError, JournalStatusError
 from ffc.clients.exchage_rates import ExchangeRatesAsyncClient
@@ -105,14 +106,14 @@ class AuthorizationProcessor:
         self.billing_end_date = self.billing_start_date + relativedelta(months=1, days=-1)
         self.DECIMAL_DIGITS = 4
         self.DECIMAL_PRECISION = Decimal("10") ** -self.DECIMAL_DIGITS
-        self.exchange_rates = {}
-        self.invalid_organizations = []
+        self.exchange_rates: dict[str, Any] = {}
+        self.invalid_organizations: list[Any] = []
         self.logger = PrefixAdapter(
             logging.getLogger(__name__), {"prefix": self.authorization.get("id")}
         )
 
     @asynccontextmanager
-    async def acquire_semaphore(self):
+    async def acquire_semaphore(self) -> AsyncGenerator[None, Any]:
         """
         This method acquires and releases a  semaphore.
         """
@@ -129,7 +130,7 @@ class AuthorizationProcessor:
         func,
         *args,
         **kwargs,
-    ):
+    ) -> Any | None:
         """
         Conditionally calls and awaits the given asynchronous function.
 
@@ -149,7 +150,7 @@ class AuthorizationProcessor:
         if not self.dry_run:
             return await func(*args, **kwargs)
 
-    def build_filepath(self):
+    def build_filepath(self) -> str:
         """
         Constructs and returns the file path for a charges JSONL file.
 
@@ -166,7 +167,7 @@ class AuthorizationProcessor:
         filepath = f"{tempfile.gettempdir()}/{filepath}" if not self.dry_run else filepath
         return filepath
 
-    async def evaluate_journal_status(self, journal_external_id):
+    async def evaluate_journal_status(self, journal_external_id) -> dict[str, Any] | None:
         """
         Evaluates the status of a journal.
 
@@ -195,7 +196,7 @@ class AuthorizationProcessor:
             self.logger.warning(f"Found the journal {journal_id} with status {journal_status}")
             raise JournalStatusError()
 
-    async def process(self):
+    async def process(self) -> AuthorizationProcessResult | None:
         """
         This method is responsible for passing a journal with status VALIDATED to
         the function that writes the charges into a file and then to complete the
@@ -204,7 +205,6 @@ class AuthorizationProcessor:
         result = AuthorizationProcessResult(authorization_id=self.authorization_id)
         async with self.acquire_semaphore():
             try:
-                # double check with production
                 if not await self.mpt_client.count_active_agreements(
                     self.authorization_id,
                     self.billing_start_date,
@@ -248,7 +248,7 @@ class AuthorizationProcessor:
             except Exception as error:
                 self.logger.error(f"An error occurred: {error}", exc_info=error)
 
-    async def write_charges_file(self, filepath):
+    async def write_charges_file(self, filepath) -> bool:
         """
         This method writes the charges file to the given filepath.
         If there is more than one agreement for an organization, it won't be processed.
@@ -308,7 +308,9 @@ class AuthorizationProcessor:
                 return False
             return True
 
-    async def complete_journal_process(self, filepath, journal, journal_external_id):
+    async def complete_journal_process(
+        self, filepath, journal, journal_external_id
+    ) -> Coroutine | None:
         """
         This method uploads and submits the given journal, attaching also the exchange rates
         files.
@@ -377,7 +379,7 @@ class AuthorizationProcessor:
 
     async def attach_exchange_rates(
         self, journal_id: str, currency: str, exchange_rates: dict[str, Any]
-    ):
+    ) -> Coroutine | None:
         """
         This method checks if an attachment already exists for the given journal.
         If it exists, it will be deleted and a new one will be created with the
@@ -392,7 +394,7 @@ class AuthorizationProcessor:
         attachment = await self.mpt_client.fetch_journal_attachment(journal_id, f"{currency}_")
         if attachment:  # pragma no cover
             if attachment["name"] == filename:
-                return
+                return None
             await self.mpt_client.delete_journal_attachment(journal_id, attachment["id"])
 
         return await self.mpt_client.create_journal_attachment(journal_id, filename, serialized)
@@ -401,8 +403,8 @@ class AuthorizationProcessor:
         self,
         charges_file: Any,
         organization: dict[str, Any],
-        agreement: dict[str, Any] | None = None,
-    ):
+        agreement: dict[str, Any],
+    ) -> Coroutine | None:
         organization_id = organization["id"]
         async for datasource_info, expenses in async_groupby(
             self.ffc_client.fetch_organization_expenses(organization_id, self.year, self.month),
@@ -441,7 +443,7 @@ class AuthorizationProcessor:
         datasource_id: str,
         datasource_name: str,
         daily_expenses: dict[int, Decimal],
-    ):
+    ) -> list[str]:
         """
         This method generates all the charges for the given datasource and
         calculates the refund for the Trials and Entitlements periods.
@@ -539,7 +541,7 @@ class AuthorizationProcessor:
         )
         return charges
 
-    async def is_journal_status_validated(self, journal_id, max_attempts=5):
+    async def is_journal_status_validated(self, journal_id, max_attempts=5) -> bool:
         backoff_times = [0.15, 0.45, 1.05, 2.25, 4.65]
 
         for attempt in range(min(max_attempts, len(backoff_times))):
@@ -563,20 +565,22 @@ class AuthorizationProcessor:
         the trials and entitlements period. Trials get priority over Entitlements
         """
         refund_lines = []
-        trial_days = set()
+        trial_days: set[int] = set()
         trial_start_date, trial_end_date = get_trial_dates(agreement=agreement)
         if trial_start_date and trial_end_date:
-            trial_days, trial_refund_from, trial_refund_to = self.get_trial_days(
+            trial_info = self.get_trial_info(
                 trial_start_date,
                 trial_end_date,
             )
-            trial_amount = sum(daily_expenses.get(day, Decimal("0")) for day in trial_days)
-
+            trial_amount = Decimal(
+                sum(daily_expenses.get(day, Decimal("0")) for day in trial_info.trial_days)
+            )
+            trial_days = trial_info.trial_days
             refund_lines.append(
                 Refund(
                     trial_amount,
-                    trial_refund_from,
-                    trial_refund_to,
+                    trial_info.refund_from,
+                    trial_info.refund_to,
                     (
                         "Refund due to trial period "
                         f"(from {trial_start_date.strftime("%d %b %Y")} "  # type: ignore
@@ -587,12 +591,14 @@ class AuthorizationProcessor:
 
         if entitlement_start_date:
             entitlement_days = self.get_entitlement_days(
-                entitlement_start_date,
-                entitlement_termination_date,
-                trial_days,
+                trial_days=trial_days,
+                entitlement_start_date=entitlement_start_date,
+                entitlement_end_date=entitlement_termination_date,
             )
             for r_start, r_end in split_entitlement_days_into_ranges(entitlement_days):
-                ent_amount = sum(daily_expenses.get(day, 0) for day in range(r_start, r_end + 1))
+                ent_amount = Decimal(
+                    sum(daily_expenses.get(day, 0) for day in range(r_start, r_end + 1))
+                )
 
                 refund_lines.append(
                     Refund(
@@ -614,7 +620,7 @@ class AuthorizationProcessor:
         linked_datasource_type: str,
         datasource_id: str,
         datasource_name: str,
-    ):
+    ) -> list[str]:
         """
         This function calculates the refund lines for a billing period
         """
@@ -676,28 +682,41 @@ class AuthorizationProcessor:
             idx += 1
         return charges
 
-    def get_trial_days(
+    def get_trial_info(
         self,
-        trial_start_date: date | None,
-        trial_end_date: date | None,
-    ):
+        trial_start_date: date,
+        trial_end_date: date,
+    ) -> TrialInfo:
         # Trial period can start or end on month other than billing month period.
         # In this situation, we need to limit refunded expenses
         # to a period overlapping with billing month.
         # Example, billing month is June 1-30, a trial period is May 17 - June 17
         # We need to refund expenses from June 1st to June 17th
-        if not trial_start_date and not trial_end_date:
-            return None, None, None
         trial_refund_from = max(trial_start_date, self.billing_start_date.date())
         trial_refund_to = min(trial_end_date, self.billing_end_date.date())
         trial_days = {
             dt.date().day for dt in rrule(DAILY, dtstart=trial_refund_from, until=trial_refund_to)
         }
-        return trial_days, trial_refund_from, trial_refund_to
+        return TrialInfo(trial_days, trial_refund_from, trial_refund_to)
 
     def get_entitlement_days(
-        self, entitlement_start_date: str, entitlement_end_date: str, trial_days: set[int]
-    ):
+        self,
+        trial_days: set[int],
+        entitlement_start_date: str,
+        entitlement_end_date: str | None = None,
+    ) -> set[int]:
+        """
+        Calculate the set of entitlement day numbers within a date range,
+        excluding the given trial day numbers.
+
+        Args:
+            entitlement_start_date (str): ISO format start date string.
+            entitlement_end_date (Optional[str]): ISO format end date string, or None.
+            trial_days (Optional[Set[int]]): Set of trial day numbers (1–31)
+
+        Returns:
+            Set[int]: Set of day numbers (1–31) representing entitlement days.
+        """
         start_date = max(datetime.fromisoformat(entitlement_start_date), self.billing_start_date)
         end_date = min(
             datetime.fromisoformat(entitlement_end_date)
@@ -722,7 +741,7 @@ class AuthorizationProcessor:
         price: Decimal,
         datasource_name: str,
         description: str = "",
-    ):
+    ) -> str:
         """
         This function generates a charge line for a vendor and datasource.
         """
@@ -762,7 +781,7 @@ class AuthorizationProcessor:
         return f"{line}\n"
 
 
-def get_trial_dates(agreement: dict[str, Any]) -> tuple[Any | None, Decimal]:
+def get_trial_dates(agreement: dict[str, Any]) -> tuple[Any, Any]:
     trial_start = get_trial_start_date(agreement)
     trial_end = get_trial_end_date(agreement)
     return trial_start, trial_end
