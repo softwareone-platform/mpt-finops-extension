@@ -4,7 +4,7 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 from django.core.management.base import BaseCommand
 
-from ffc.process_billing import (
+from ffc.billing.process_billing import (
     process_billing,
 )
 

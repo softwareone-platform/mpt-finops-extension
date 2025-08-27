@@ -1,14 +1,17 @@
 import copy
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Generator
 
+import httpx
 import jwt
 import pytest
 import responses
 from swo.mpt.extensions.runtime.djapp.conf import get_for_product
 
 from ffc.billing.dataclasses import AuthorizationProcessResult
-from ffc.process_billing import AuthorizationProcessor
+from ffc.billing.process_billing import AuthorizationProcessor
+from ffc.clients.base import BaseAsyncAPIClient
 
 
 @pytest.fixture()
@@ -2665,3 +2668,30 @@ def patch_fetch_organizations_agr_000(
         "fetch_organizations",
         return_value=org_mock_generator_agr_000,
     )
+
+
+class TestClientAuth(httpx.Auth):
+    def auth_flow(self, request: httpx.Request) -> Generator[httpx.Request, httpx.Response, None]:
+        request.headers["Authorization"] = "Bearer fake token"
+        yield request
+
+
+class FakeAPIClient(BaseAsyncAPIClient):
+    @property
+    def base_url(self) -> str:
+        return "https://local.local/v1"
+
+    @property
+    def auth(self):
+        return TestClientAuth()
+
+    def get_pagination_meta(self, response):
+        return response["meta"]["pagination"]
+
+    def get_page_data(self, response):
+        return response["data"]
+
+
+@pytest.fixture()
+def fake_apiclient():
+    return FakeAPIClient(limit=2)
