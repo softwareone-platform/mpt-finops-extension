@@ -2,7 +2,7 @@
 # Declare variables to be passed into your templates.
 
 cliVersion: 2.4.0
-owner: sirius
+owner: turing
 git:
   repository: mpt-extension-finops
 image:
