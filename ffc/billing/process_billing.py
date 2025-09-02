@@ -567,7 +567,7 @@ class AuthorizationProcessor:
         refund_lines = []
         trial_days: set[int] = set()
         trial_start_date, trial_end_date = get_trial_dates(agreement=agreement)
-        if trial_start_date and trial_end_date:
+        if trial_start_date and trial_end_date and trial_end_date >= self.billing_start_date.date():
             trial_info = self.get_trial_info(
                 trial_start_date,
                 trial_end_date,
@@ -664,18 +664,11 @@ class AuthorizationProcessor:
                     f"{linked_datasource_id}-{idx:02d}",
                     datasource_id,
                     organization_id,
-                    date(
-                        self.billing_start_date.year,
-                        self.billing_start_date.month,
-                        min(daily_expenses.keys()),
-                    ),
-                    date(
-                        self.billing_start_date.year,
-                        self.billing_start_date.month,
-                        max(daily_expenses.keys()),
-                    ),
+                    refund.start_date,
+                    refund.end_date,
                     -refund_in_target_currency,
                     datasource_name,
+                    refund.description,
                 )
             )
 

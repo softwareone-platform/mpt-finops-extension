@@ -477,8 +477,9 @@ async def test_generate_datasource_charges_with_daily_expenses(
         '"34654563488"}, "search": {"subscription": {"criteria": '
         '"subscription.externalIds.vendor", "value": "FORG-4801-6958-2949"}, "item": '
         '{"criteria": "item.externalIds.vendor", "value": ""}}, "period": {"start": '
-        '"2025-06-01", "end": "2025-06-30"}, "price": {"unitPP": "-39.1447", "PPx1": '
-        '"-39.1447"}, "quantity": 1, "description": {"value1": "Test", "value2": ""}, '
+        '"2025-06-01", "end": "2025-06-15"}, "price": {"unitPP": "-39.1447", "PPx1": '
+        '"-39.1447"}, "quantity": 1, "description": {"value1": "Test", "value2": '
+        '"Refund due to trial period (from 01 Jun 2025 to 15 Jun 2025)"}, '
         '"segment": "COM"}\n'
     )
     assert (
@@ -588,8 +589,9 @@ async def test_generate_datasource_charges_with_no_entitlement(
         '"34654563488"}, "search": {"subscription": {"criteria": '
         '"subscription.externalIds.vendor", "value": "FORG-4801-6958-2949"}, "item": '
         '{"criteria": "item.externalIds.vendor", "value": ""}}, "period": {"start": '
-        '"2025-06-01", "end": "2025-06-30"}, "price": {"unitPP": "-39.1447", "PPx1": '
-        '"-39.1447"}, "quantity": 1, "description": {"value1": "Test", "value2": ""}, '
+        '"2025-06-01", "end": "2025-06-15"}, "price": {"unitPP": "-39.1447", "PPx1": '
+        '"-39.1447"}, "quantity": 1, "description": {"value1": "Test", "value2": '
+        '"Refund due to trial period (from 01 Jun 2025 to 15 Jun 2025)"}, '
         '"segment": "COM"}\n'
     )
 
