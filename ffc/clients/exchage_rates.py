@@ -21,7 +21,7 @@ class ExchangeRatesAsyncClient(BaseAsyncAPIClient):
         if currency in self.exchage_rates_cache:
             return self.exchage_rates_cache[currency]
         response = await self.httpx_client.get(
-            f"{settings.EXTENSION_CONFIG["EXCHANGE_RATES_BASE_URL"]}/latest/{currency}"
+            f"{settings.EXTENSION_CONFIG["EXCHANGE_RATES_API_TOKEN"]}/latest/{currency}"
         )
         response.raise_for_status()
         exchange_rates = response.json()
