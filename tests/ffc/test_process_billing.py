@@ -7,9 +7,11 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import httpx
 import pytest
+from freezegun import freeze_time
 
-from ffc.billing.dataclasses import AuthorizationProcessResult, CurrencyConversionInfo, Refund
-from ffc.billing.exceptions import ExchangeRatesClientError, JournalStatusError
+from ffc.billing.dataclasses import CurrencyConversionInfo, ProcessResult, ProcessResultInfo, Refund
+from ffc.billing.exceptions import ExchangeRatesClientError, JournalStatusError, JournalSubmitError
+from ffc.billing.notification_helper import check_results
 from ffc.billing.process_billing import get_trial_dates
 
 MODULE_PATH = "ffc.management.commands.process_billing"
@@ -71,7 +73,7 @@ async def test_evaluate_journal_different_from_draft_and_not_validated(
     billing_process_instance.mpt_client.get_journal = AsyncMock(
         return_value=existing_journal_file_response["data"][0]
     )
-    with caplog.at_level(logging.WARNING):
+    with caplog.at_level(logging.ERROR):
         with pytest.raises(JournalStatusError):
             await billing_process_instance.evaluate_journal_status(
                 journal_external_id="202505",
@@ -87,7 +89,7 @@ async def test_evaluate_journal_passing_none(billing_process_instance, caplog):
     """if the journal does not exist, it should return None"""
     billing_process_instance.mpt_client = AsyncMock()
     billing_process_instance.mpt_client.get_journal = AsyncMock(return_value=None)
-    with caplog.at_level(logging.WARNING):
+    with caplog.at_level(logging.INFO):
         response = await billing_process_instance.evaluate_journal_status(
             journal_external_id="202505",
         )
@@ -351,13 +353,51 @@ async def test_complete_journal_process_success(
     billing_process_instance.mpt_client.submit_journal = AsyncMock(return_value=True)
     billing_process_instance.exchange_rates = exchange_rates
     billing_process_instance.mpt_client.attach_exchange_rates = AsyncMock(return_value=None)
+    expected_respone = {
+        "$meta": {"omitted": ["processing"]},
+        "audit": {
+            "created": {
+                "at": "2025-06-10T17:04:53.802Z",
+                "by": {"icon": "", "id": "TKN-5645-5497", "name": "Antonio Di Mariano"},
+            },
+            "updated": {},
+        },
+        "authorization": {"currency": "USD", "id": "AUT-5305-9928", "name": "asdasdsa"},
+        "dueDate": "2025-07-01T00:00:00.000Z",
+        "externalIds": {"vendor": "202506"},
+        "id": "BJO-9000-4019",
+        "name": "June 2025 Charges",
+        "owner": {
+            "externalId": "US",
+            "icon": "/v1/accounts/sellers/SEL-7032-1456/icon",
+            "id": "SEL-7032-1456",
+            "name": "SoftwareONE Inc.",
+        },
+        "price": {"currency": "USD", "totalPP": 0.0},
+        "product": {
+            "externalIds": {"operations": "adsasadsa"},
+            "icon": "/v1/catalog/products/PRD-2426-7318/icon",
+            "id": "PRD-2426-7318",
+            "name": "FinOps for Cloud",
+            "status": "Published",
+        },
+        "status": "Validated",
+        "upload": {"error": 0, "ready": 0, "split": 0, "total": 0},
+        "vendor": {
+            "icon": "/v1/accounts/accounts/ACC-3102-8586/icon",
+            "id": "ACC-3102-8586",
+            "name": "FinOps for Cloud",
+            "status": "Active",
+            "type": "Vendor",
+        },
+    }
     with caplog.at_level(logging.INFO):
         response = await billing_process_instance.complete_journal_process(
             filepath=f"{tempfile.gettempdir()}/test_generate_charges_file.json",
             journal=None,
             journal_external_id="BJO-9000-4019",
         )
-        assert response is None
+        assert response == expected_respone
     assert "[AUT-5305-9928] new journal created: BJO-9000-4019" in caplog.messages[0]
     assert "[AUT-5305-9928] submitting the journal BJO-9000-4019." in caplog.messages[1]
 
@@ -368,11 +408,12 @@ async def test_complete_journal_process_fail(
     create_journal_response,
     journal_attachment_response,
     exchange_rates,
+    monkeypatch,
     caplog,
 ):
     """if a Journal is created successfully,
     the exchanges_rate_json will be attached. If the journal's status
-    is not validated, it won't be submitted. None is returned"""
+    is not validated, it won't be submitted. JournalSubmitError will be raised."""
     billing_process_instance.mpt_client = AsyncMock()
     billing_process_instance.mpt_client.create_journal = AsyncMock(
         return_value=create_journal_response
@@ -387,13 +428,15 @@ async def test_complete_journal_process_fail(
     billing_process_instance.attach_exchange_rates = AsyncMock(
         return_value=journal_attachment_response
     )
+
     with caplog.at_level(logging.INFO):
-        response = await billing_process_instance.complete_journal_process(
-            filepath=f"{tempfile.gettempdir()}/test_generate_charges_file.json",
-            journal=create_journal_response,
-            journal_external_id="BJO-9000-4019",
-        )
-        assert response is None
+        with pytest.raises(JournalSubmitError):
+            await billing_process_instance.complete_journal_process(
+                filepath=f"{tempfile.gettempdir()}/test_generate_charges_file.json",
+                journal=create_journal_response,
+                journal_external_id="BJO-9000-4019",
+            )
+
     assert (
         "[AUT-5305-9928] cannot submit the journal BJO-9000-4019 it doesn't get validated"
         in caplog.messages[0]
@@ -773,9 +816,9 @@ async def test_process_no_count_active_agreements(billing_process_instance, capl
     billing_process_instance.mpt_client.count_active_agreements = AsyncMock(return_value=0)
     with caplog.at_level(logging.INFO):
         response = await billing_process_instance.process()
-        assert isinstance(response, AuthorizationProcessResult)
+        assert isinstance(response, ProcessResultInfo)
         assert response.authorization_id == "AUT-5305-9928"
-        assert response.errors[0] == "No active agreement for authorization AUT-5305-9928"
+        assert response.message == "No active agreement for authorization AUT-5305-9928"
 
 
 @pytest.mark.asyncio()
@@ -793,6 +836,53 @@ async def test_process_success(billing_process_instance, existing_journal_file_r
     assert billing_process_instance.mpt_client.get_journal.call_count == 1
     assert billing_process_instance.mpt_client.count_active_agreements.call_count == 1
     assert billing_process_instance.write_charges_file.call_count == 1
+
+
+@pytest.mark.asyncio()
+async def test_process_journal_validated(billing_process_instance, existing_journal_file_response):
+    """if the process completed successfully, all the function are called once."""
+    existing_journal_file_response["data"][0]["status"] = "Validated"
+    billing_process_instance.mpt_client = AsyncMock()
+    billing_process_instance.mpt_client.count_active_agreements = AsyncMock(return_value=2)
+    billing_process_instance.write_charges_file = AsyncMock(return_value=True)
+    billing_process_instance.mpt_client.get_journal = AsyncMock(
+        return_value=existing_journal_file_response["data"][0]
+    )
+    billing_process_instance.complete_journal_process = AsyncMock(
+        return_value=existing_journal_file_response["data"][0]
+    )
+    response = await billing_process_instance.process()
+    assert response.result == ProcessResult.JOURNAL_GENERATED
+    assert response.message is None
+    assert response.journal_id == "BJO-9000-4019"
+
+
+@pytest.mark.asyncio()
+async def test_process_journal_different_from_draft(
+    billing_process_instance, existing_journal_file_response
+):
+    """if the journal status is not VALIDATED or DRAFT, the flow will be stopped."""
+    existing_journal_file_response["data"][0]["status"] = "Review"
+    billing_process_instance.mpt_client = AsyncMock()
+    billing_process_instance.mpt_client.count_active_agreements = AsyncMock(return_value=2)
+    billing_process_instance.mpt_client.get_journal = AsyncMock(
+        return_value=existing_journal_file_response["data"][0]
+    )
+    response = await billing_process_instance.process()
+    assert response.result == ProcessResult.JOURNAL_SKIPPED
+    assert response.journal_id == "BJO-9000-4019"
+
+
+@pytest.mark.asyncio()
+async def test_process_no_journal(billing_process_instance):
+    """if the journal status is not VALIDATED or DRAFT, the flow will be stopped."""
+    billing_process_instance.mpt_client = AsyncMock()
+    billing_process_instance.mpt_client.count_active_agreements = AsyncMock(return_value=2)
+    billing_process_instance.write_charges_file = AsyncMock(return_value=True)
+    billing_process_instance.mpt_client.get_journal = AsyncMock(return_value=None)
+    response = await billing_process_instance.process()
+    assert response.result == ProcessResult.ERROR
+    assert "No journal found for external ID: 202506" in response.message
 
 
 @pytest.mark.asyncio()
@@ -860,6 +950,42 @@ async def test_process_exception(billing_process_instance, caplog):
     with caplog.at_level(logging.ERROR):
         await billing_process_instance.process()
     assert "[AUT-5305-9928] An error occurred: No good Reasons" in caplog.messages[0]
+
+
+@pytest.mark.asyncio()
+async def test_process_exception_journal_status_error(billing_process_instance, caplog):
+    billing_process_instance.evaluate_journal_status = AsyncMock(
+        side_effect=JournalStatusError("an error occurred.", journal_id="BJO-9000-4019")
+    )
+    billing_process_instance.mpt_client = AsyncMock()
+    billing_process_instance.mpt_client.count_active_agreements = AsyncMock(return_value=2)
+    billing_process_instance.write_charges_file = AsyncMock(return_value=True)
+
+    response = await billing_process_instance.process()
+    assert response.result is ProcessResult.JOURNAL_SKIPPED
+    assert response.journal_id == "BJO-9000-4019"
+    assert response.message == "an error occurred."
+
+
+@pytest.mark.asyncio()
+async def test_process_exception_journal_submit_error(
+    billing_process_instance, caplog, existing_journal_file_response
+):
+    billing_process_instance.write_charges_file = AsyncMock(
+        side_effect=JournalSubmitError("an error occurred.", journal_id="BJO-9000-4019")
+    )
+    billing_process_instance.mpt_client = AsyncMock()
+    billing_process_instance.mpt_client.count_active_agreements = AsyncMock(return_value=2)
+    billing_process_instance.mpt_client = AsyncMock()
+    billing_process_instance.mpt_client.count_active_agreements = AsyncMock(return_value=2)
+    billing_process_instance.mpt_client.get_journal = AsyncMock(
+        return_value=existing_journal_file_response["data"][0]
+    )
+    billing_process_instance.complete_journal_process = AsyncMock(return_value=None)
+    response = await billing_process_instance.process()
+    assert response.result is ProcessResult.ERROR
+    assert response.journal_id == "BJO-9000-4019"
+    assert response.message == "an error occurred."
 
 
 # ------------------------------------------------------------------------------------
@@ -949,7 +1075,7 @@ async def test_process_billing_with_single_authorization(
 
     from ffc.billing.process_billing import process_billing
 
-    await process_billing(2025, 7, "AUTH1", dry_run=True)
+    await process_billing(2025, 7, 5, "AUTH1", dry_run=True)
 
     mock_client.fetch_authorization.assert_awaited_once_with("AUTH1")
     mock_processor_cls.assert_called_once_with(2025, 7, mock_authorization, True)
@@ -960,8 +1086,9 @@ async def test_process_billing_with_single_authorization(
 @patch("ffc.billing.process_billing.MPTAsyncClient")
 @patch("ffc.billing.process_billing.AuthorizationProcessor")
 @patch("ffc.billing.process_billing.settings")
+@patch("ffc.billing.process_billing.send_notifications")
 async def test_process_billing_with_multiple_authorizations(
-    mock_settings, mock_processor_cls, mock_mpt_client_cls
+    mock_notify, mock_settings, mock_processor_cls, mock_mpt_client_cls
 ):
     """if the process_billing() is started without a given authorization's ID,
     all the authorizations
@@ -974,8 +1101,8 @@ async def test_process_billing_with_multiple_authorizations(
         yield {"id": "AUTH1"}
         yield {"id": "AUTH2"}
 
-    mock_mpt_client = MagicMock()
-    mock_mpt_client.fetch_authorizations = MagicMock(return_value=async_gen())
+    mock_mpt_client = AsyncMock()
+    mock_mpt_client.fetch_authorizations = MagicMock(side_effect=async_gen)
     mock_mpt_client.close = AsyncMock()
     mock_mpt_client_cls.return_value = mock_mpt_client
 
@@ -984,12 +1111,17 @@ async def test_process_billing_with_multiple_authorizations(
 
     from ffc.billing.process_billing import process_billing
 
-    await process_billing(2025, 7)
+    await process_billing(2025, 7, cutoff_day=5)
 
     assert mock_processor_cls.call_count == 2
     mock_processor.process.assert_awaited()
     mock_mpt_client.fetch_authorizations.assert_called_once()
     mock_mpt_client.close.assert_awaited_once()
+    mock_notify.assert_awaited_once()
+    _, kwargs = mock_notify.call_args
+    assert kwargs["year"] == 2025
+    assert kwargs["month"] == 7
+    assert kwargs["cutoff_day"] == 5
 
 
 # # -----------------------------------------------------------------------------------
@@ -1035,8 +1167,19 @@ def test_get_trial_days_full_month(billing_process_instance):
 @pytest.mark.parametrize(
     "opts",
     [
-        {"year": 2025, "month": 8, "dry_run": True},
-        {"year": 2024, "month": 12, "dry_run": False, "authorization": "AUTH123"},
+        {
+            "year": 2025,
+            "month": 8,
+            "dry_run": True,
+            "cutoff_day": 1,
+        },
+        {
+            "year": 2024,
+            "month": 12,
+            "dry_run": False,
+            "authorization": "AUTH123",
+            "cutoff_day": 1,
+        },
     ],
 )
 def test_handle_run_command(monkeypatch, opts):
@@ -1055,6 +1198,69 @@ def test_handle_run_command(monkeypatch, opts):
         opts["month"],
         authorization_id=expected_auth,
         dry_run=opts["dry_run"],
+        cutoff_day=opts["cutoff_day"],
     )
 
     asyncio_run_mock.assert_called_once_with(fake_coro_obj)
+
+
+# # -----------------------------------------------------------------------------------
+# # - Test Notifications
+
+
+def test_count_process_result_no_errors(process_result_success_payload):
+    success, fail = check_results(results=process_result_success_payload)
+    assert success is True
+    assert fail is False
+
+
+def test_count_process_result_journal_skipped(process_result_with_warning):
+    success, fail = check_results(results=process_result_with_warning)
+    assert success is False
+    assert fail is False
+
+
+def test_count_process_result_error(process_result_with_error):
+    success, fail = check_results(results=process_result_with_error)
+    assert success is False
+    assert fail is True
+
+
+@pytest.mark.asyncio()
+@patch("ffc.notifications.send_notification", new_callable=AsyncMock)
+async def test_process_billing_results_success_notification(
+    send_notification_mock, process_result_success_payload
+):
+    import ffc.billing.notification_helper as mod
+
+    await mod.send_notifications(results=process_result_success_payload, year=2025, month=9)
+
+    assert send_notification_mock.called
+
+
+@freeze_time("2025-09-01")
+@pytest.mark.asyncio()
+@patch("ffc.notifications.send_notification", new_callable=AsyncMock)
+async def test_process_billing_in_progress_notification(
+    send_notification_mock, process_result_with_error, caplog
+):
+    import ffc.billing.notification_helper as mod
+
+    with caplog.at_level("WARNING"):
+        await mod.send_notifications(results=process_result_with_error, year=2025, month=9)
+    assert send_notification_mock.called
+    assert "Journals for the September-2025 billing cycle are in progress." in caplog.messages[0]
+
+
+@freeze_time("2025-09-08")
+@pytest.mark.asyncio()
+@patch("ffc.notifications.send_notification", new_callable=AsyncMock)
+async def test_process_billing_error_notification(
+    send_notification_mock, process_result_with_error, caplog
+):
+    import ffc.billing.notification_helper as mod
+
+    with caplog.at_level("ERROR"):
+        await mod.send_notifications(results=process_result_with_error, year=2025, month=9)
+    assert send_notification_mock.called
+    assert "The billing process for September-2025 was completed with Errors." in caplog.messages[0]
