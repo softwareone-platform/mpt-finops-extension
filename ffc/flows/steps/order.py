@@ -182,9 +182,11 @@ class SetupFulfillmentParameters(Step):
                     parameter=param_name,
                     value=param_value,
                 )
+            agreement = context.order["agreement"]
             context.order = update_order(
                 client, context.order["id"], parameters=order["parameters"]
             )
+            context.order["agreement"] = agreement
             logger.info(
                 f"{context}: Updating fulfillment parameters",
             )
@@ -247,7 +249,7 @@ class StartOrderProcessing(Step):
             context.order = set_template(context.order, template)
             update_order(client, context.order["id"], template=context.order["template"])
             logger.info(
-                f"{context}: processing template set to {self.template_name} " f"({template['id']})"
+                f"{context}: processing template set to {self.template_name} ({template['id']})"
             )
         logger.info(f"{context}: processing template is ok, continue")
 
