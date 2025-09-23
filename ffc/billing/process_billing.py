@@ -18,13 +18,19 @@ from django.conf import settings
 from httpx import HTTPStatusError
 
 from ffc.billing.dataclasses import (
-    AuthorizationProcessResult,
     CurrencyConversionInfo,
     Datasource,
+    ProcessResult,
+    ProcessResultInfo,
     Refund,
     TrialInfo,
 )
-from ffc.billing.exceptions import ExchangeRatesClientError, JournalStatusError
+from ffc.billing.exceptions import (
+    ExchangeRatesClientError,
+    JournalStatusError,
+    JournalSubmitError,
+)
+from ffc.billing.notification_helper import send_notifications
 from ffc.clients.exchage_rates import ExchangeRatesAsyncClient
 from ffc.clients.ffc import FFCAsyncClient
 from ffc.clients.mpt import MPTAsyncClient
@@ -36,6 +42,12 @@ from ffc.utils import (
 
 DRAFT = "Draft"
 VALIDATED = "Validated"
+REVIEW = "Review"
+GENERATING = "Generating"
+GENERATED = "Generated"
+ACCEPTED = "Accepted"
+COMPLETED = "Completed"
+VALID_STATUS = [DRAFT, VALIDATED, REVIEW, GENERATING, GENERATED, ACCEPTED, COMPLETED]
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +58,11 @@ class PrefixAdapter(logging.LoggerAdapter):
 
 
 async def process_billing(
-    year: int, month: int, authorization_id: str | None = None, dry_run=False
+    year: int,
+    month: int,
+    cutoff_day: int,
+    authorization_id: str | None = None,
+    dry_run=False,
 ):
     """
     This method starts the processing of all billings for each authorization.
@@ -74,11 +90,8 @@ async def process_billing(
             tasks.append(asyncio.create_task(processor.process()))
 
         logger.info(f"Processing {len(tasks)} authorizations for {product_id}")
-        await asyncio.gather(*tasks)
-        # results = await asyncio.gather(*tasks)
-        # for result in results:  # pragma no cover
-        #     # todo process errors and send notification
-        #     pass
+        response = await asyncio.gather(*tasks)
+        await send_notifications(results=response, year=year, month=month, cutoff_day=cutoff_day)
 
     await mpt_client.close()
 
@@ -111,6 +124,14 @@ class AuthorizationProcessor:
         self.logger = PrefixAdapter(
             logging.getLogger(__name__), {"prefix": self.authorization.get("id")}
         )
+
+    async def _safe_unlink(self, filepath: str) -> None:
+        try:
+            await aiofiles.os.unlink(filepath)
+        except FileNotFoundError:
+            self.logger.debug(f"File {filepath} not found during cleanup, ignoring")
+        except Exception as error:
+            self.logger.warning(f"Failed to cleanup file {filepath}: {error}")
 
     @asynccontextmanager
     async def acquire_semaphore(self) -> AsyncGenerator[None, Any]:
@@ -167,7 +188,7 @@ class AuthorizationProcessor:
         filepath = f"{tempfile.gettempdir()}/{filepath}" if not self.dry_run else filepath
         return filepath
 
-    async def evaluate_journal_status(self, journal_external_id) -> dict[str, Any] | None:
+    async def evaluate_journal_status(self, journal_external_id):
         """
         Evaluates the status of a journal.
 
@@ -184,25 +205,27 @@ class AuthorizationProcessor:
         """
         journal = await self.mpt_client.get_journal(self.authorization_id, journal_external_id)
         if not journal:
-            self.logger.error(f"No journal found for external ID: {journal_external_id}")
+            error_msg = f"No journal found for external ID: {journal_external_id}"
+            self.logger.info(error_msg)
             return None
-
         journal_id = journal["id"]
         journal_status = journal["status"]
-        if journal_status in (VALIDATED, DRAFT):
-            self.logger.info(f"Already found journal: {journal_id} with status {journal_status}")
+        if journal_status in VALID_STATUS:
+            msg = f"Already found journal: {journal_id} with status {journal_status}"
+            self.logger.info(msg)
             return journal
         else:
-            self.logger.warning(f"Found the journal {journal_id} with status {journal_status}")
-            raise JournalStatusError()
+            error_msg = f"Found the journal {journal_id} with status {journal_status}"
+            self.logger.error(error_msg)
+            raise JournalStatusError(error_msg, journal_id)
 
-    async def process(self) -> AuthorizationProcessResult | None:
+    async def process(self) -> ProcessResultInfo:
         """
         This method is responsible for passing a journal with status VALIDATED to
         the function that writes the charges into a file and then to complete the
         process by submitting the journal.
         """
-        result = AuthorizationProcessResult(authorization_id=self.authorization_id)
+
         async with self.acquire_semaphore():
             try:
                 if not await self.mpt_client.count_active_agreements(
@@ -211,32 +234,91 @@ class AuthorizationProcessor:
                     self.billing_end_date,
                 ):
                     self.logger.info(f"No active agreement in the period {self.month}/{self.year}")
-                    result.errors.append(
+                    result_info = ProcessResultInfo(
+                        authorization_id=self.authorization_id, result=ProcessResult.JOURNAL_SKIPPED
+                    )
+                    result_info.message = (
                         f"No active agreement for authorization {self.authorization_id}"
                     )
-                    return result
+
+                    return result_info
 
                 journal_external_id = f"{self.year:04d}{self.month:02d}"
                 filepath = self.build_filepath()
+                try:
+                    journal = await self.maybe_call(
+                        self.evaluate_journal_status, journal_external_id
+                    )
+                    if not journal:
+                        result_info = ProcessResultInfo(
+                            authorization_id=self.authorization_id,
+                            result=ProcessResult.ERROR,
+                        )
+                        result_info.message = (
+                            f"No journal found for external ID: {journal_external_id}"
+                        )
+                        return result_info
+                    status = journal["status"]
+                    if status == VALIDATED:
+                        await self.maybe_call(self.mpt_client.submit_journal, journal["id"])
+                        result_info = ProcessResultInfo(
+                            authorization_id=self.authorization_id,
+                            result=ProcessResult.JOURNAL_GENERATED,
+                        )
+                        result_info.journal_id = journal["id"]
 
-                journal = await self.maybe_call(self.evaluate_journal_status, journal_external_id)
-                if journal and journal["status"] == VALIDATED:
-                    await self.maybe_call(self.mpt_client.submit_journal, journal["id"])
-                    return result
+                    elif status != DRAFT:
+                        result_info = ProcessResultInfo(
+                            authorization_id=self.authorization_id,
+                            result=ProcessResult.JOURNAL_SKIPPED,
+                        )
+                        result_info.journal_id = journal["id"]
+                        return result_info
 
+                except JournalStatusError as error:
+                    self.logger.warning(error)
+                    result_info = ProcessResultInfo(
+                        authorization_id=self.authorization_id, result=ProcessResult.JOURNAL_SKIPPED
+                    )
+                    result_info.message = str(error)
+                    result_info.journal_id = error.journal_id
+                    return result_info
                 self.logger.info(
                     f"generating charges file {filepath} "
                     f"currency {self.authorization['currency']}"
                 )
-                has_charges = await self.write_charges_file(filepath=filepath)
-                if has_charges:
-                    await self.maybe_call(
-                        self.complete_journal_process,
-                        filepath,
-                        journal,
-                        journal_external_id,
+                try:
+                    has_charges = await self.write_charges_file(filepath=filepath)
+                    if has_charges:
+                        created_journal = await self.maybe_call(
+                            self.complete_journal_process,
+                            filepath,
+                            journal,
+                            journal_external_id,
+                        )
+                        await self.maybe_call(self._safe_unlink, filepath)
+                        result_info = ProcessResultInfo(
+                            authorization_id=self.authorization_id,
+                            result=ProcessResult.JOURNAL_GENERATED,
+                        )
+                        result_info.journal_id = (created_journal or {}).get("id", "-")
+                        return result_info
+                    else:
+                        result_info = ProcessResultInfo(
+                            authorization_id=self.authorization_id,
+                            result=ProcessResult.JOURNAL_SKIPPED,
+                        )
+                        result_info.message = "No Charge File found for this authorization."
+                        return result_info
+
+                except JournalSubmitError as error:
+                    self.logger.warning(error)
+                    result_info = ProcessResultInfo(
+                        authorization_id=self.authorization_id, result=ProcessResult.ERROR
                     )
-                    await self.maybe_call(aiofiles.os.unlink, filepath)
+                    result_info.message = str(error)
+                    result_info.journal_id = error.journal_id
+                    return result_info
 
             except HTTPStatusError as error:
                 status = error.response.status_code
@@ -244,9 +326,19 @@ class AuthorizationProcessor:
                 if error.response.headers.get("Content-Type") == "application/json":
                     reason = error.response.json()
                 self.logger.error(f"{status} - {reason}")
+                result_info = ProcessResultInfo(
+                    authorization_id=self.authorization_id, result=ProcessResult.ERROR
+                )
+                result_info.message = str(error)
+                return result_info
 
             except Exception as error:
                 self.logger.error(f"An error occurred: {error}", exc_info=error)
+                result_info = ProcessResultInfo(
+                    authorization_id=self.authorization_id, result=ProcessResult.ERROR
+                )
+                result_info.message = str(error)
+                return result_info
 
     async def write_charges_file(self, filepath) -> bool:
         """
@@ -308,9 +400,7 @@ class AuthorizationProcessor:
                 return False
             return True
 
-    async def complete_journal_process(
-        self, filepath, journal, journal_external_id
-    ) -> Coroutine | None:
+    async def complete_journal_process(self, filepath, journal, journal_external_id) -> dict:
         """
         This method uploads and submits the given journal, attaching also the exchange rates
         files.
@@ -338,9 +428,11 @@ class AuthorizationProcessor:
         if await self.is_journal_status_validated(journal_id):
             self.logger.info(f"submitting the journal {journal_id}.")
             await self.mpt_client.submit_journal(journal_id)
+            return journal
         else:
-            self.logger.info(f"cannot submit the journal {journal_id} it doesn't get validated")
-            return None
+            error_msg = f"cannot submit the journal {journal_id} it doesn't get validated"
+            self.logger.info(error_msg)
+            raise JournalSubmitError(error_msg, journal_id)
 
     async def get_currency_conversion_info(
         self,
@@ -430,7 +522,7 @@ class AuthorizationProcessor:
                 daily_expenses,
             )
             self.logger.info(
-                f"charges for datasource {datasource_info.linked_datasource_id} -> {charges=}"
+                f"charges for datasource {datasource_info.linked_datasource_id} : {charges}"
             )
             await charges_file.writelines(charges)
 
@@ -583,8 +675,8 @@ class AuthorizationProcessor:
                     trial_info.refund_to,
                     (
                         "Refund due to trial period "
-                        f"(from {trial_start_date.strftime("%d %b %Y")} "  # type: ignore
-                        f"to {trial_end_date.strftime("%d %b %Y")})"  # type: ignore
+                        f"(from {trial_start_date.strftime('%d %b %Y')} "  # type: ignore
+                        f"to {trial_end_date.strftime('%d %b %Y')})"  # type: ignore
                     ),
                 )
             )

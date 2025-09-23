@@ -9,7 +9,7 @@ import pytest
 import responses
 from swo.mpt.extensions.runtime.djapp.conf import get_for_product
 
-from ffc.billing.dataclasses import AuthorizationProcessResult
+from ffc.billing.dataclasses import ProcessResult, ProcessResultInfo
 from ffc.billing.process_billing import AuthorizationProcessor
 from ffc.clients.base import BaseAsyncAPIClient
 
@@ -1519,7 +1519,7 @@ def billing_process_instance():
 
 @pytest.fixture()
 def authorization_process_result():
-    return AuthorizationProcessResult(
+    return ProcessResultInfo(
         authorization_id="AUT-5305-9928",
     )
 
@@ -2695,3 +2695,39 @@ class FakeAPIClient(BaseAsyncAPIClient):
 @pytest.fixture()
 def fake_apiclient():
     return FakeAPIClient(limit=2)
+
+
+@pytest.fixture()
+def process_result_success_payload():
+    return [
+        ProcessResultInfo(
+            authorization_id="AUTH-1234-5678",
+            journal_id="BJO-1234-5678",
+            result=ProcessResult.JOURNAL_GENERATED,
+            message=None,
+        ),
+    ]
+
+
+@pytest.fixture()
+def process_result_with_warning():
+    return [
+        ProcessResultInfo(
+            authorization_id="AUTH-1234-5678",
+            journal_id="BJO-1234-5678",
+            result=ProcessResult.JOURNAL_SKIPPED,
+            message="Found the journal BJO-8604-8083 with status Review",
+        ),
+    ]
+
+
+@pytest.fixture()
+def process_result_with_error():
+    return [
+        ProcessResultInfo(
+            authorization_id="AUTH-1234-5678",
+            journal_id="BJO-1234-5678",
+            result=ProcessResult.ERROR,
+            message="Error",
+        ),
+    ]

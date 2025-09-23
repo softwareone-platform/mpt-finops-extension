@@ -1,4 +1,5 @@
 import asyncio
+import sys
 from datetime import date
 
 from dateutil.relativedelta import relativedelta
@@ -36,13 +37,24 @@ class Command(BaseCommand):
             default=(date.today() - relativedelta(months=1)).month,
             help="Year for billing period",
         )
+        parser.add_argument(
+            "--cutoff-day",
+            type=int,
+            default=5,
+            help="The cutoff day to run the process for.",
+        )
 
     def handle(self, *args, **options):
+        cutoff_day = options["cutoff_day"]
+        if cutoff_day not in range(1, 29):
+            self.stderr.write(self.style.ERROR("cutoff-day must be between 1 and 28 (inclusive)"))
+            sys.exit(1)
         asyncio.run(
             process_billing(
                 options["year"],
                 options["month"],
                 authorization_id=options.get("authorization"),
                 dry_run=options["dry_run"],
+                cutoff_day=cutoff_day,
             )
         )

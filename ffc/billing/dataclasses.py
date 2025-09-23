@@ -1,6 +1,7 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date
-from typing import Any
+from enum import Enum
+from typing import Any, TypedDict
 
 from _decimal import Decimal
 
@@ -40,7 +41,28 @@ class CurrencyConversionInfo:
     exchange_rates: dict[str, Any] | None = None
 
 
+class ProcessResult(Enum):
+    JOURNAL_SKIPPED = "journal_skipped"
+    JOURNAL_GENERATED = "journal_generated"
+    ERROR = "error"
+
+
 @dataclass
-class AuthorizationProcessResult:
+class ProcessResultInfo:
     authorization_id: str
-    errors: list[str] = field(default_factory=list)
+    result: ProcessResult
+    journal_id: str | None = None
+    message: str | None = None
+
+
+@dataclass
+class ProcessResultSummary(TypedDict):
+    successful_counter: int
+    error_counter: int
+    details: list
+
+
+class NotificationLevel(Enum):
+    SUCCESS = "success"
+    IN_PROGRESS = "in_progress"
+    ERROR = "error"
