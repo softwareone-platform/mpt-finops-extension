@@ -1112,6 +1112,7 @@ def expenses():
             "day": 31,
             "month": 5,
             "expenses": "5484.1464",
+            "total_expenses": "5484.1464",
         },
         {
             "events": {
@@ -1132,6 +1133,7 @@ def expenses():
             "day": 31,
             "month": 5,
             "expenses": "2244.3480",
+            "total_expenses": "2244.3480",
         },
         {
             "events": {
@@ -1152,6 +1154,7 @@ def expenses():
             "day": 31,
             "month": 5,
             "expenses": "36368.0435",
+            "total_expenses": "36368.0435",
         },
         {
             "events": {
@@ -1172,6 +1175,7 @@ def expenses():
             "day": 31,
             "month": 5,
             "expenses": "12012.9029",
+            "total_expenses": "12012.9029",
         },
         {
             "events": {
@@ -1192,6 +1196,7 @@ def expenses():
             "day": 31,
             "month": 5,
             "expenses": "140492.1680",
+            "total_expenses": "140492.1680",
         },
         {
             "events": {
@@ -1212,6 +1217,7 @@ def expenses():
             "day": 31,
             "month": 5,
             "expenses": "449.7770",
+            "total_expenses": "449.7770",
         },
         {
             "events": {
@@ -1232,6 +1238,7 @@ def expenses():
             "day": 31,
             "month": 5,
             "expenses": "763.9655",
+            "total_expenses": "763.9655",
         },
         {
             "events": {
@@ -1252,6 +1259,7 @@ def expenses():
             "day": 31,
             "month": 5,
             "expenses": "1.5603",
+            "total_expenses": "1.5603",
         },
         {
             "events": {
@@ -1272,6 +1280,7 @@ def expenses():
             "day": 31,
             "month": 5,
             "expenses": "2866.7103",
+            "total_expenses": "2866.7103",
         },
         {
             "events": {
@@ -1292,6 +1301,7 @@ def expenses():
             "day": 31,
             "month": 5,
             "expenses": "2948.0483",
+            "total_expenses": "2948.0483",
         },
         {
             "events": {
@@ -1312,6 +1322,7 @@ def expenses():
             "day": 31,
             "month": 5,
             "expenses": "147974.7328",
+            "total_expenses": "147974.7328",
         },
         {
             "events": {
@@ -1332,6 +1343,7 @@ def expenses():
             "day": 31,
             "month": 5,
             "expenses": "22.3045",
+            "total_expenses": "22.3045",
         },
         {
             "events": {
@@ -1352,6 +1364,7 @@ def expenses():
             "day": 31,
             "month": 5,
             "expenses": "3678.8134",
+            "total_expenses": "3678.8134",
         },
         {
             "events": {
@@ -1372,6 +1385,7 @@ def expenses():
             "day": 31,
             "month": 5,
             "expenses": "0.0004",
+            "total_expenses": "0.0004",
         },
         {
             "events": {
@@ -1392,6 +1406,7 @@ def expenses():
             "day": 31,
             "month": 5,
             "expenses": "2564.4489",
+            "total_expenses": "2564.4489",
         },
         {
             "events": {
@@ -1412,6 +1427,7 @@ def expenses():
             "day": 31,
             "month": 5,
             "expenses": "0.0000",
+            "total_expenses": "0.0000",
         },
         {
             "events": {
@@ -1432,6 +1448,7 @@ def expenses():
             "day": 31,
             "month": 5,
             "expenses": "0.0000",
+            "total_expenses": "0.0000",
         },
         {
             "events": {
@@ -1452,6 +1469,7 @@ def expenses():
             "day": 31,
             "month": 5,
             "expenses": "0.0000",
+            "total_expenses": "0.0000",
         },
     ]
 
