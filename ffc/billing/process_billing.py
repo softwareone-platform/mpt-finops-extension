@@ -507,7 +507,9 @@ class AuthorizationProcessor:
                 x["datasource_name"],
             ),
         ):
-            daily_expenses = {expense["day"]: Decimal(expense["expenses"]) for expense in expenses}
+            daily_expenses = {
+                expense["day"]: Decimal(expense["total_expenses"]) for expense in expenses
+            }
             self.logger.info(
                 f"expenses for datasource "
                 f"{datasource_info.linked_datasource_id} -> {daily_expenses=}"
