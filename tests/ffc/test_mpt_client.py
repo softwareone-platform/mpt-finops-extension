@@ -1,5 +1,5 @@
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from io import BytesIO
 
 import httpx
@@ -186,8 +186,8 @@ async def test_get_journal_404_raises(httpx_mock, mocked_mpt_client):
 @pytest.mark.asyncio()
 async def test_count_active_agreements(httpx_mock, mocked_mpt_client, agreements):
     authorization_id = "AUT-5305-9928"
-    start_date = datetime(2025, 1, 1, tzinfo=timezone.utc)
-    end_date = datetime(2025, 8, 21, 23, 59, tzinfo=timezone.utc)
+    start_date = datetime(2025, 1, 1, tzinfo=UTC)
+    end_date = datetime(2025, 8, 21, 23, 59, tzinfo=UTC)
     rql = (
         "and("
         f"eq(authorization.id,{authorization_id}),"
@@ -216,8 +216,8 @@ async def test_count_active_agreements(httpx_mock, mocked_mpt_client, agreements
 @pytest.mark.asyncio()
 async def test_count_active_agreements_404_raises(httpx_mock, mocked_mpt_client, agreements):
     authorization_id = "AUT-5305-9928"
-    start_date = datetime(2025, 1, 1, tzinfo=timezone.utc)
-    end_date = datetime(2025, 8, 21, 23, 59, tzinfo=timezone.utc)
+    start_date = datetime(2025, 1, 1, tzinfo=UTC)
+    end_date = datetime(2025, 8, 21, 23, 59, tzinfo=UTC)
     rql = (
         "and("
         f"eq(authorization.id,{authorization_id}),"
@@ -245,8 +245,8 @@ async def test_count_active_agreements_404_raises(httpx_mock, mocked_mpt_client,
 @pytest.mark.asyncio()
 async def test_count_active_agreements_zero_count(httpx_mock, mocked_mpt_client, agreements):
     authorization_id = "AUT-5305-9928"
-    start_date = datetime(2025, 1, 1, tzinfo=timezone.utc)
-    end_date = datetime(2025, 8, 21, 23, 59, tzinfo=timezone.utc)
+    start_date = datetime(2025, 1, 1, tzinfo=UTC)
+    end_date = datetime(2025, 8, 21, 23, 59, tzinfo=UTC)
     rql = (
         "and("
         f"eq(authorization.id,{authorization_id}),"
