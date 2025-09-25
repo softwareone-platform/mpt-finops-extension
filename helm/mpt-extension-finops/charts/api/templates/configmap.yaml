@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: {{ include "common.fullname" . }}
+  labels:
+    {{- include "common.labels" . | nindent 4 }}
+data:
+  APPLICATIONINSIGHTS_CONNECTION_STRING: {{ .Values.global.AppInsightsConnectionString | quote }}
+  OTEL_SERVICE_NAME: {{ .Values.global.OTELServiceName | quote }}
+  MPT_PORTAL_BASE_URL: {{ .Values.global.MpPortalBaseUrl | quote }}
+  MPT_API_BASE_URL: {{ .Values.global.MpBaseUrl | quote }}
+  MPT_PRODUCTS_IDS: {{ .Values.global.MpProductsIds | quote }}
+  MPT_NOTIFY_CATEGORIES: {{ .Values.global.MpNotifyCategories | quote }}
+  EXT_EMAIL_NOTIFICATIONS_SENDER: {{ .Values.global.EmailNotificationsSender | quote }}
+  EXT_EMAIL_NOTIFICATIONS_ENABLED: {{ .Values.global.EmailNotificationsEnabled | quote }}
+  EXT_AWS_SES_REGION: {{ .Values.global.AwsSesRegion | quote }}
+  EXT_FFC_SUB: {{ .Values.global.FFCSub | quote }}
+  EXT_FFC_OPERATIONS_API_BASE_URL: {{ .Values.global.FFCOperationsBaseUrl | quote }}
+  EXT_DEFAULT_BILLED_PERCENTAGE: {{ .Values.global.DefaultBilledPercentage | quote }}
+  EXT_DEFAULT_TRIAL_PERIOD_DURATION_DAYS: {{ .Values.global.DefaultTrialPeriodDays | quote }}
