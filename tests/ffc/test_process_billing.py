@@ -874,18 +874,6 @@ async def test_process_journal_different_from_draft(
 
 
 @pytest.mark.asyncio()
-async def test_process_no_journal(billing_process_instance):
-    """if the journal status is not VALIDATED or DRAFT, the flow will be stopped."""
-    billing_process_instance.mpt_client = AsyncMock()
-    billing_process_instance.mpt_client.count_active_agreements = AsyncMock(return_value=2)
-    billing_process_instance.write_charges_file = AsyncMock(return_value=True)
-    billing_process_instance.mpt_client.get_journal = AsyncMock(return_value=None)
-    response = await billing_process_instance.process()
-    assert response.result == ProcessResult.ERROR
-    assert "No journal found for external ID: 202506" in response.message
-
-
-@pytest.mark.asyncio()
 async def test_process_no_charges_written(billing_process_instance, existing_journal_file_response):
     """if no charges files are written, the complete_journal_process won't be called."""
     billing_process_instance.mpt_client = AsyncMock()

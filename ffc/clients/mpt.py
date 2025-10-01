@@ -45,7 +45,7 @@ class MPTAsyncClient(BaseAsyncAPIClient, PaginationSupportMixin):
 
     def fetch_authorizations(
         self,
-    ) -> AsyncGenerator[dict[str, Any]]:
+    ) -> AsyncGenerator[dict[str, Any], None]:
         return self.collection_iterator(
             "/catalog/authorizations",
             rql=f"eq(product.id,{settings.MPT_PRODUCTS_IDS[0]})"
@@ -75,7 +75,6 @@ class MPTAsyncClient(BaseAsyncAPIClient, PaginationSupportMixin):
             ")"
             ")"
         )
-
         response = await self.httpx_client.get(
             f"/commerce/agreements?{rql}&limit=0",
         )
