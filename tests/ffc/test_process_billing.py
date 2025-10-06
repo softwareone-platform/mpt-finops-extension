@@ -1,4 +1,3 @@
-import importlib
 import json
 import logging
 import tempfile
@@ -7,16 +6,13 @@ from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import httpx
 import pytest
+from django.core.management import call_command
 from freezegun import freeze_time
 
 from ffc.billing.dataclasses import CurrencyConversionInfo, ProcessResult, ProcessResultInfo, Refund
 from ffc.billing.exceptions import ExchangeRatesClientError, JournalStatusError, JournalSubmitError
 from ffc.billing.notification_helper import check_results
 from ffc.billing.process_billing import get_trial_dates
-
-MODULE_PATH = "ffc.management.commands.process_billing"
-mod = importlib.import_module(MODULE_PATH)
-Command = mod.Command
 
 # - test evaluate_journal_status()
 
@@ -141,6 +137,7 @@ async def test_write_charges_file_success_no_trial_start_trial_end(
     patch_fetch_organizations,
     patch_fetch_agreements,
     patch_fetch_organization_expenses,
+    temp_charges_file,
     caplog,
 ):
     """if no trial_start and trial_end are provided, the functions still returns True"""
@@ -148,7 +145,7 @@ async def test_write_charges_file_success_no_trial_start_trial_end(
         return_value=['{"id": 1, "name": "test_1"}\n', '{"id": 2, "name": "test_2"}\n']
     )
     result = await billing_process_instance.write_charges_file(
-        filepath=f"{tempfile.gettempdir()}/test_generate_charges_file.json",
+        filepath=temp_charges_file,
     )
     assert result is True
 
@@ -160,13 +157,14 @@ async def test_write_charges_file_success(
     patch_fetch_agreements_with_trial,
     patch_fetch_organizations,
     patch_fetch_organization_expenses,
+    temp_charges_file,
 ):
     """the successful case"""
     billing_process_instance.generate_datasource_charges = AsyncMock(
         return_value=['{"id": 1, "name": "test_1"}\n', '{"id": 2, "name": "test_2"}\n']
     )
     result = await billing_process_instance.write_charges_file(
-        filepath=f"{tempfile.gettempdir()}/test_generate_charges_file.json",
+        filepath=temp_charges_file,
     )
     assert result is True
 
@@ -177,12 +175,13 @@ async def test_write_charges_file_empty_file(
     patch_fetch_organizations,
     patch_fetch_agreements,
     patch_fetch_organization_expenses,
+    temp_charges_file,
     caplog,
 ):
     """if an empty file is provided, it should return False, no files were written"""
     billing_process_instance.generate_datasource_charges = AsyncMock(return_value={})
     result = await billing_process_instance.write_charges_file(
-        filepath=f"{tempfile.gettempdir()}/test_generate_charges_file.json",
+        filepath=temp_charges_file,
     )
     assert result is False
 
@@ -193,6 +192,7 @@ async def test_write_charges_file_agr_000(
     patch_fetch_organizations_agr_000,
     patch_fetch_organization_expenses,
     patch_fetch_agreements,
+    temp_charges_file,
     caplog,
 ):
     """if an agr_000 is provided, it should return False because no files will be written"""
@@ -201,7 +201,7 @@ async def test_write_charges_file_agr_000(
             return_value=['{"id": 1, "name": "test_1"}\n', '{"id": 2, "name": "test_2"}\n']
         )
         result = await billing_process_instance.write_charges_file(
-            filepath=f"{tempfile.gettempdir()}/test_generate_charges_file.json",
+            filepath=temp_charges_file,
         )
         assert (
             "[AUT-5305-9928] Skip organization FORG-4801-6958-2949 - "
@@ -217,6 +217,7 @@ async def test_write_charges_file_many_agreements(
     patch_fetch_organizations,
     agreements,
     patch_fetch_organization_expenses,
+    temp_charges_file,
     caplog,
 ):
     """if many agreements are provided for a given org,
@@ -240,7 +241,7 @@ async def test_write_charges_file_many_agreements(
             return_value=['{"id": 1, "name": "test_1"}\n', '{"id": 2, "name": "test_2"}\n']
         )
         result = await billing_process_instance.write_charges_file(
-            filepath=f"{tempfile.gettempdir()}/test_generate_charges_file.json",
+            filepath=temp_charges_file,
         )
         assert (
             "[AUT-5305-9928] Found 2 while we were expecting "
@@ -256,6 +257,7 @@ async def test_write_charges_file_different_auth_id(
     patch_fetch_organizations,
     agreements,
     patch_fetch_organization_expenses,
+    temp_charges_file,
     caplog,
 ):
     """if the authorization's ID of a given agreement is different from the one defined, those
@@ -276,7 +278,7 @@ async def test_write_charges_file_different_auth_id(
             return_value=['{"id": 1, "name": "test_1"}\n', '{"id": 2, "name": "test_2"}\n']
         )
         result = await billing_process_instance.write_charges_file(
-            filepath=f"{tempfile.gettempdir()}/test_generate_charges_file.json",
+            filepath=temp_charges_file,
         )
         assert (
             "[AUT-5305-9928] Skipping organization "
@@ -336,6 +338,7 @@ async def test_complete_journal_process_success(
     billing_process_instance,
     create_journal_response,
     journal_attachment_response,
+    temp_charges_file,
     caplog,
     exchange_rates,
 ):
@@ -393,7 +396,7 @@ async def test_complete_journal_process_success(
     }
     with caplog.at_level(logging.INFO):
         response = await billing_process_instance.complete_journal_process(
-            filepath=f"{tempfile.gettempdir()}/test_generate_charges_file.json",
+            filepath=temp_charges_file,
             journal=None,
             journal_external_id="BJO-9000-4019",
         )
@@ -408,7 +411,7 @@ async def test_complete_journal_process_fail(
     create_journal_response,
     journal_attachment_response,
     exchange_rates,
-    monkeypatch,
+    temp_charges_file,
     caplog,
 ):
     """if a Journal is created successfully,
@@ -432,7 +435,7 @@ async def test_complete_journal_process_fail(
     with caplog.at_level(logging.INFO):
         with pytest.raises(JournalSubmitError):
             await billing_process_instance.complete_journal_process(
-                filepath=f"{tempfile.gettempdir()}/test_generate_charges_file.json",
+                filepath=temp_charges_file,
                 journal=create_journal_response,
                 journal_external_id="BJO-9000-4019",
             )
@@ -1170,16 +1173,14 @@ def test_get_trial_days_full_month(billing_process_instance):
         },
     ],
 )
-def test_handle_run_command(monkeypatch, opts):
+def test_handle_run_command(mocker, opts):
     fake_coro_obj = object()
     process_billing_mock = Mock(return_value=fake_coro_obj)
     asyncio_run_mock = Mock()
 
-    monkeypatch.setattr(mod, "process_billing", process_billing_mock)
-    monkeypatch.setattr(mod.asyncio, "run", asyncio_run_mock)
-
-    Command().handle(**opts)
-
+    mocker.patch("ffc.management.commands.process_billing.process_billing", process_billing_mock)
+    mocker.patch("ffc.management.commands.process_billing.asyncio.run", asyncio_run_mock)
+    call_command("process_billing", **opts)
     expected_auth = opts.get("authorization")
     process_billing_mock.assert_called_once_with(
         opts["year"],

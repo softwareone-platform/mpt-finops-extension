@@ -1,4 +1,6 @@
 import copy
+import json
+import tempfile
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Generator
@@ -2749,3 +2751,11 @@ def process_result_with_error():
             message="Error",
         ),
     ]
+
+
+@pytest.fixture()
+def temp_charges_file():
+    with tempfile.NamedTemporaryFile("w", suffix="json") as f:
+        json.dump({"charges": [{"id": 1, "amount": 100.0}]}, f)
+        f.seek(0)
+        yield f.name
