@@ -228,11 +228,16 @@ class AuthorizationProcessor:
 
         async with self.acquire_semaphore():
             try:
-                if not await self.mpt_client.count_active_agreements(
+                active_agreements =  await self.mpt_client.count_active_agreements(
                     self.authorization_id,
                     self.billing_start_date,
                     self.billing_end_date,
-                ):
+                )
+                self.logger.info(
+                    f"{active_agreements} agreements have been "
+                    f"found for authorization {self.authorization_id}"
+                )
+                if not active_agreements:
                     self.logger.info(f"No active agreement in the period {self.month}/{self.year}")
                     result_info = ProcessResultInfo(
                         authorization_id=self.authorization_id, result=ProcessResult.JOURNAL_SKIPPED
@@ -249,25 +254,16 @@ class AuthorizationProcessor:
                     journal = await self.maybe_call(
                         self.evaluate_journal_status, journal_external_id
                     )
-                    if not journal:
-                        result_info = ProcessResultInfo(
-                            authorization_id=self.authorization_id,
-                            result=ProcessResult.ERROR,
-                        )
-                        result_info.message = (
-                            f"No journal found for external ID: {journal_external_id}"
-                        )
-                        return result_info
-                    status = journal["status"]
-                    if status == VALIDATED:
+                    if journal and journal["status"] == VALIDATED:
                         await self.maybe_call(self.mpt_client.submit_journal, journal["id"])
                         result_info = ProcessResultInfo(
                             authorization_id=self.authorization_id,
                             result=ProcessResult.JOURNAL_GENERATED,
                         )
                         result_info.journal_id = journal["id"]
+                        return result_info
 
-                    elif status != DRAFT:
+                    elif journal and journal["status"] != DRAFT:
                         result_info = ProcessResultInfo(
                             authorization_id=self.authorization_id,
                             result=ProcessResult.JOURNAL_SKIPPED,
@@ -308,7 +304,7 @@ class AuthorizationProcessor:
                             authorization_id=self.authorization_id,
                             result=ProcessResult.JOURNAL_SKIPPED,
                         )
-                        result_info.message = "No Charge File found for this authorization."
+                        result_info.message = "No charges for this authorization."
                         return result_info
 
                 except JournalSubmitError as error:
