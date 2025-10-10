@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import date
+from datetime import datetime
 from enum import Enum
 from typing import Any, TypedDict
 
@@ -21,16 +21,16 @@ class Datasource:
 @dataclass
 class Refund:
     amount: Decimal
-    start_date: date
-    end_date: date
+    start_date: datetime
+    end_date: datetime
     description: str
 
 
 @dataclass
 class TrialInfo:
     trial_days: set[int]
-    refund_from: date
-    refund_to: date
+    refund_from: datetime
+    refund_to: datetime
 
 
 @dataclass

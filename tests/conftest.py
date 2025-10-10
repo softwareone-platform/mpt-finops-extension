@@ -755,340 +755,76 @@ def ffc_organization():
 
 
 @pytest.fixture()
-def entitlement():
+def fetch_terminated_entitlement():
     return {
-        "items": [
-            {
-                "name": "dfgfsdgsdgfsdfgfasf",
-                "affiliate_external_id": "34534563456",
-                "datasource_id": "34654563456",
-                "id": "FENT-2502-5308-4600",
-                "owner": {
-                    "id": "FACC-8686-4136",
-                    "name": "Test Accept invitation for existing user",
-                    "type": "affiliate",
-                },
-                "status": "new",
-                "events": {
-                    "created": {
-                        "at": "2025-07-10T08:22:44.126636Z",
-                        "by": {"id": "FUSR-2345-9426", "type": "user", "name": "Tomasz"},
-                    },
-                    "updated": {
-                        "at": "2025-07-10T08:22:44.051141Z",
-                        "by": {"id": "FUSR-2345-9426", "type": "user", "name": "Tomasz"},
-                    },
+        "name": "Test with Antonio",
+        "affiliate_external_id": "AGR-1234-5678-9012",
+        "datasource_id": "e30e2a6e-0712-48c3-8685-3298df063633",
+        "id": "FENT-9763-4488-4624",
+        "linked_datasource_id": "89d63330-92d1-45dc-a408-5a768ae22f9f",
+        "linked_datasource_name": "MPT (Dev)",
+        "linked_datasource_type": "azure_cnr",
+        "owner": {"id": "FACC-3887-7055", "name": "Microsoft CSP", "type": "affiliate"},
+        "status": "terminated",
+        "events": {
+            "created": {
+                "at": "2025-05-06T08:39:09.584186Z",
+                "by": {"id": "FUSR-5352-1497", "type": "user", "name": "Francesco Faraone"},
+            },
+            "updated": {
+                "at": "2025-05-12T07:47:17.877365Z",
+                "by": {"id": "FTKN-4573-9711", "type": "system", "name": "Microsoft CSP Extension"},
+            },
+            "redeemed": {
+                "at": "2025-05-06T08:39:45.995072Z",
+                "by": {
+                    "id": "FORG-1317-5652-8045",
+                    "name": "SoftwareOne (Test Environment)",
+                    "operations_external_id": "AGR-4480-3352-1794",
                 },
             },
-            {
-                "name": "wqrwertwetwr",
-                "affiliate_external_id": "234523456234562",
-                "datasource_id": "sdfasfdasdf",
-                "id": "FENT-2625-7695-6282",
-                "owner": {
-                    "id": "FACC-8686-4136",
-                    "name": "Test Accept invitation for existing user",
-                    "type": "affiliate",
-                },
-                "status": "new",
-                "events": {
-                    "created": {
-                        "at": "2025-07-10T08:22:11.400321Z",
-                        "by": {"id": "FUSR-2345-9426", "type": "user", "name": "Tomasz"},
-                    },
-                    "updated": {
-                        "at": "2025-07-10T08:22:11.303663Z",
-                        "by": {"id": "FUSR-2345-9426", "type": "user", "name": "Tomasz"},
-                    },
+            "terminated": {
+                "at": "2025-06-28T07:47:19.142190Z",
+                "by": {"id": "FTKN-4573-9711", "type": "system", "name": "Microsoft CSP Extension"},
+            },
+        },
+    }
+
+
+@pytest.fixture()
+def fetch_active_entitlement():
+    return {
+        "name": "Test with Antonio",
+        "affiliate_external_id": "AGR-1234-5678-9012",
+        "datasource_id": "e30e2a6e-0712-48c3-8685-3298df063633",
+        "id": "FENT-9763-4488-4624",
+        "linked_datasource_id": "89d63330-92d1-45dc-a408-5a768ae22f9f",
+        "linked_datasource_name": "MPT (Dev)",
+        "linked_datasource_type": "azure_cnr",
+        "owner": {"id": "FACC-3887-7055", "name": "Microsoft CSP", "type": "affiliate"},
+        "status": "active",
+        "events": {
+            "created": {
+                "at": "2025-09-06T08:39:09.584186Z",
+                "by": {"id": "FUSR-5352-1497", "type": "user", "name": "Peter Parker"},
+            },
+            "updated": {
+                "at": "2025-09-12T07:47:17.877365Z",
+                "by": {
+                    "id": "FTKN-4573-9711",
+                    "type": "system",
+                    "name": "Microsoft CSP Extension",
                 },
             },
-            {
-                "name": "345345345345dfsdfvzadfvasxddvf",
-                "affiliate_external_id": "2253453456",
-                "datasource_id": "4523653456",
-                "id": "FENT-5197-1585-4783",
-                "owner": {
-                    "id": "FACC-8686-4136",
-                    "name": "Test Accept invitation for existing user",
-                    "type": "affiliate",
-                },
-                "status": "new",
-                "events": {
-                    "created": {
-                        "at": "2025-07-10T08:21:38.010646Z",
-                        "by": {"id": "FUSR-2345-9426", "type": "user", "name": "Tomasz"},
-                    },
-                    "updated": {
-                        "at": "2025-07-10T08:21:37.937403Z",
-                        "by": {"id": "FUSR-2345-9426", "type": "user", "name": "Tomasz"},
-                    },
+            "redeemed": {
+                "at": "2025-09-06T08:39:45.995072Z",
+                "by": {
+                    "id": "FORG-1317-5652-8045",
+                    "name": "SoftwareOne (Test Environment)",
+                    "operations_external_id": "AGR-4480-3352-1794",
                 },
             },
-            {
-                "name": "qweqweqw",
-                "affiliate_external_id": "qweqweqwe",
-                "datasource_id": "34534545",
-                "id": "FENT-8654-8302-7297",
-                "owner": {
-                    "id": "FACC-8686-4136",
-                    "name": "Test Accept invitation for existing user",
-                    "type": "affiliate",
-                },
-                "status": "new",
-                "events": {
-                    "created": {
-                        "at": "2025-07-10T08:21:19.516501Z",
-                        "by": {"id": "FUSR-2345-9426", "type": "user", "name": "Tomasz"},
-                    },
-                    "updated": {
-                        "at": "2025-07-10T08:21:19.437454Z",
-                        "by": {"id": "FUSR-2345-9426", "type": "user", "name": "Tomasz"},
-                    },
-                },
-            },
-            {
-                "name": "ewrwerwer",
-                "affiliate_external_id": "wqweqwe",
-                "datasource_id": "qweqwe",
-                "id": "FENT-1432-3132-9430",
-                "owner": {
-                    "id": "FACC-8686-4136",
-                    "name": "Test Accept invitation for existing user",
-                    "type": "affiliate",
-                },
-                "status": "new",
-                "events": {
-                    "created": {
-                        "at": "2025-07-10T08:21:03.567451Z",
-                        "by": {"id": "FUSR-2345-9426", "type": "user", "name": "Tomasz"},
-                    },
-                    "updated": {
-                        "at": "2025-07-10T08:21:03.496876Z",
-                        "by": {"id": "FUSR-2345-9426", "type": "user", "name": "Tomasz"},
-                    },
-                },
-            },
-            {
-                "name": "rwerwer",
-                "affiliate_external_id": "cco-34234345",
-                "datasource_id": "231423",
-                "id": "FENT-8186-0526-2061",
-                "owner": {
-                    "id": "FACC-8686-4136",
-                    "name": "Test Accept invitation for existing user",
-                    "type": "affiliate",
-                },
-                "status": "new",
-                "events": {
-                    "created": {
-                        "at": "2025-07-10T08:20:45.160288Z",
-                        "by": {"id": "FUSR-2345-9426", "type": "user", "name": "Tomasz"},
-                    },
-                    "updated": {
-                        "at": "2025-07-10T08:20:45.085988Z",
-                        "by": {"id": "FUSR-2345-9426", "type": "user", "name": "Tomasz"},
-                    },
-                },
-            },
-            {
-                "name": "sfsadfasdfdsa",
-                "affiliate_external_id": "asdfasdf",
-                "datasource_id": "asdfsadf",
-                "id": "FENT-7190-2021-5257",
-                "owner": {
-                    "id": "FACC-8686-4136",
-                    "name": "Test Accept invitation for existing user",
-                    "type": "affiliate",
-                },
-                "status": "new",
-                "events": {
-                    "created": {
-                        "at": "2025-07-10T08:08:35.055703Z",
-                        "by": {"id": "FUSR-6956-9254", "type": "user", "name": "FrancescoFaraone"},
-                    },
-                    "updated": {
-                        "at": "2025-07-10T08:08:34.961701Z",
-                        "by": {"id": "FUSR-6956-9254", "type": "user", "name": "FrancescoFaraone"},
-                    },
-                },
-            },
-            {
-                "name": "Cic",
-                "affiliate_external_id": "tetesksk292929",
-                "datasource_id": "kskskssksks",
-                "id": "FENT-5279-3531-9327",
-                "owner": {"id": "FACC-5810-4583", "name": "Test", "type": "affiliate"},
-                "status": "new",
-                "events": {
-                    "created": {
-                        "at": "2025-07-10T08:08:11.717386Z",
-                        "by": {"id": "FUSR-6956-9254", "type": "user", "name": "FrancescoFaraone"},
-                    },
-                    "updated": {
-                        "at": "2025-07-10T08:08:11.645376Z",
-                        "by": {"id": "FUSR-6956-9254", "type": "user", "name": "FrancescoFaraone"},
-                    },
-                },
-            },
-            {
-                "name": "Test 2 ",
-                "affiliate_external_id": "Test 1234567",
-                "datasource_id": "dhdhdfgdhj",
-                "id": "FENT-3855-5465-8262",
-                "owner": {"id": "FACC-5810-4583", "name": "Test", "type": "affiliate"},
-                "status": "new",
-                "events": {
-                    "created": {
-                        "at": "2025-07-10T08:07:49.140003Z",
-                        "by": {"id": "FUSR-6956-9254", "type": "user", "name": "FrancescoFaraone"},
-                    },
-                    "updated": {
-                        "at": "2025-07-10T08:07:49.051657Z",
-                        "by": {"id": "FUSR-6956-9254", "type": "user", "name": "FrancescoFaraone"},
-                    },
-                },
-            },
-            {
-                "name": "Test",
-                "affiliate_external_id": "Test123456",
-                "datasource_id": "abcd",
-                "id": "FENT-6617-4434-4125",
-                "owner": {
-                    "id": "FACC-8686-4136",
-                    "name": "Test Accept invitation for existing user",
-                    "type": "affiliate",
-                },
-                "status": "new",
-                "events": {
-                    "created": {
-                        "at": "2025-07-10T08:07:30.818813Z",
-                        "by": {"id": "FUSR-6956-9254", "type": "user", "name": "FrancescoFaraone"},
-                    },
-                    "updated": {
-                        "at": "2025-07-10T08:07:30.729431Z",
-                        "by": {"id": "FUSR-6956-9254", "type": "user", "name": "FrancescoFaraone"},
-                    },
-                },
-            },
-            {
-                "name": "Test delete",
-                "affiliate_external_id": "one-two-delete",
-                "datasource_id": "ds-delete-id",
-                "id": "FENT-2389-3478-4085",
-                "owner": {"id": "FACC-1515-3385", "name": "The Turing Team", "type": "affiliate"},
-                "status": "deleted",
-                "events": {
-                    "created": {
-                        "at": "2025-05-22T14:40:19.211236Z",
-                        "by": {
-                            "id": "FUSR-2150-8141",
-                            "type": "user",
-                            "name": "Aleksandra Ovchinnikova",
-                        },
-                    },
-                    "updated": {
-                        "at": "2025-05-22T14:45:10.882997Z",
-                        "by": {
-                            "id": "FUSR-2150-8141",
-                            "type": "user",
-                            "name": "Aleksandra Ovchinnikova",
-                        },
-                    },
-                    "deleted": {
-                        "at": "2025-05-22T14:45:11.017527Z",
-                        "by": {
-                            "id": "FUSR-2150-8141",
-                            "type": "user",
-                            "name": "Aleksandra Ovchinnikova",
-                        },
-                    },
-                },
-            },
-            {
-                "name": "Full cycle test",
-                "affiliate_external_id": "one-two-one",
-                "datasource_id": "full-ds-id",
-                "id": "FENT-2609-0912-9266",
-                "linked_datasource_id": "0708f18c-b23a-4652-8fd1-5d95f89226a9",
-                "linked_datasource_name": "MPT Finops (Dev)",
-                "linked_datasource_type": "azure_cnr",
-                "owner": {"id": "FACC-1515-3385", "name": "The Turing Team", "type": "affiliate"},
-                "status": "terminated",
-                "events": {
-                    "created": {
-                        "at": "2025-05-22T14:37:12.724341Z",
-                        "by": {
-                            "id": "FUSR-2150-8141",
-                            "type": "user",
-                            "name": "Aleksandra Ovchinnikova",
-                        },
-                    },
-                    "updated": {
-                        "at": "2025-05-22T14:39:18.641970Z",
-                        "by": {
-                            "id": "FUSR-2150-8141",
-                            "type": "user",
-                            "name": "Aleksandra Ovchinnikova",
-                        },
-                    },
-                    "redeemed": {
-                        "at": "2025-05-22T14:38:35.569897Z",
-                        "by": {
-                            "id": "FORG-4801-6958-2949",
-                            "name": "SoftwareOne (Test Environment)",
-                            "operations_external_id": "ACC-1234-5678",
-                        },
-                    },
-                    "terminated": {
-                        "at": "2025-05-22T14:39:18.775267Z",
-                        "by": {
-                            "id": "FUSR-2150-8141",
-                            "type": "user",
-                            "name": "Aleksandra Ovchinnikova",
-                        },
-                    },
-                },
-            },
-            {
-                "name": "Fake entitlement for testing redeem",
-                "affiliate_external_id": "one-two-three",
-                "datasource_id": "my-ds-id",
-                "id": "FENT-5791-2178-5994",
-                "owner": {"id": "FACC-1515-3385", "name": "The Turing Team", "type": "affiliate"},
-                "status": "new",
-                "events": {
-                    "created": {
-                        "at": "2025-04-22T17:48:30.320143Z",
-                        "by": {"id": "FUSR-6956-9254", "type": "user", "name": "FrancescoFaraone"},
-                    },
-                    "updated": {
-                        "at": "2025-04-22T17:48:30.262507Z",
-                        "by": {"id": "FUSR-6956-9254", "type": "user", "name": "FrancescoFaraone"},
-                    },
-                },
-            },
-            {
-                "name": "I will not pay for dev env",
-                "affiliate_external_id": "AGR-0000-9999",
-                "datasource_id": "0fd2fbdf-d2cc-42e3-9749-1747b6b1fe83",
-                "id": "FENT-7955-5617-4625",
-                "owner": {"id": "FACC-1515-3385", "name": "The Turing Team", "type": "affiliate"},
-                "status": "new",
-                "events": {
-                    "created": {
-                        "at": "2025-04-22T17:48:04.420250Z",
-                        "by": {"id": "FUSR-6956-9254", "type": "user", "name": "FrancescoFaraone"},
-                    },
-                    "updated": {
-                        "at": "2025-04-22T17:48:04.267931Z",
-                        "by": {"id": "FUSR-6956-9254", "type": "user", "name": "FrancescoFaraone"},
-                    },
-                },
-            },
-        ],
-        "total": 14,
-        "limit": 50,
-        "offset": 0,
+        },
     }
 
 
@@ -1525,16 +1261,22 @@ def ffc_employee():
 
 
 @pytest.fixture()
-def billing_process_instance():
-    return AuthorizationProcessor(
-        month=6,
-        year=2025,
-        authorization={
+def billing_process_instance(request):
+    params = {
+        "month": 6,
+        "year": 2025,
+        "authorization": {
             "id": "AUT-5305-9928",
             "name": "TEST",
             "currency": "USD",
         },
-    )
+    }
+
+    # Override defaults if test provides parameters
+    if hasattr(request, "param"):
+        params.update(request.param)
+
+    return AuthorizationProcessor(**params)
 
 
 @pytest.fixture()
@@ -1831,7 +1573,7 @@ def agreement_data_with_trial():
             data[0].update(overrides)
         return data
 
-    return _agreement_factory()
+    return _agreement_factory
 
 
 @pytest.fixture()
@@ -1947,7 +1689,7 @@ def agreement_data_no_trial():
             data[0].update(overrides)
         return data
 
-    return _agreement_factory()
+    return _agreement_factory
 
 
 @pytest.fixture()
@@ -2628,7 +2370,7 @@ def agr_mock_generator(agreements):
 @pytest.fixture()
 def agr_mock_generator_with_trial(agreement_data_with_trial):
     async def _gen():
-        for agr in agreement_data_with_trial:
+        for agr in agreement_data_with_trial():
             yield agr
 
     return _gen()

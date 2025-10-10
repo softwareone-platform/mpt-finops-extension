@@ -4,7 +4,7 @@ import json
 import logging
 import tempfile
 from contextlib import asynccontextmanager
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime, timezone
 from io import BytesIO
 from pathlib import Path
 from typing import Any, AsyncGenerator, Coroutine
@@ -116,7 +116,9 @@ class AuthorizationProcessor:
         self.mpt_client = MPTAsyncClient()
         self.exchange_rate_client = ExchangeRatesAsyncClient()
         self.billing_start_date = datetime(day=1, month=self.month, year=self.year, tzinfo=UTC)
-        self.billing_end_date = self.billing_start_date + relativedelta(months=1, days=-1)
+        self.billing_end_date = (
+            self.billing_start_date + relativedelta(months=1, days=-1)
+        ).replace(hour=23, minute=59, second=59, microsecond=0)
         self.DECIMAL_DIGITS = 4
         self.DECIMAL_PRECISION = Decimal("10") ** -self.DECIMAL_DIGITS
         self.exchange_rates: dict[str, Any] = {}
@@ -170,6 +172,7 @@ class AuthorizationProcessor:
         """
         if not self.dry_run:
             return await func(*args, **kwargs)
+        return None
 
     def build_filepath(self) -> str:
         """
@@ -228,7 +231,7 @@ class AuthorizationProcessor:
 
         async with self.acquire_semaphore():
             try:
-                active_agreements =  await self.mpt_client.count_active_agreements(
+                active_agreements = await self.mpt_client.count_active_agreements(
                     self.authorization_id,
                     self.billing_start_date,
                     self.billing_end_date,
@@ -545,8 +548,8 @@ class AuthorizationProcessor:
                     f"{linked_datasource_id}-01",
                     datasource_id,
                     organization_id,
-                    self.billing_start_date.date(),
-                    self.billing_end_date.date(),
+                    self.billing_start_date,
+                    self.billing_end_date,
                     Decimal(0),
                     datasource_name,
                     description="No charges available for this datasource.",
@@ -558,22 +561,21 @@ class AuthorizationProcessor:
         price_in_source_currency = (amount * billing_percentage / Decimal(100)).quantize(
             self.DECIMAL_PRECISION
         )
+        start_dt = self.billing_start_date.replace(
+            day=min(daily_expenses.keys()), hour=0, minute=0, second=0, microsecond=0
+        )
+        end_dt = self.billing_start_date.replace(
+            day=max(daily_expenses.keys()), hour=23, minute=59, second=59, microsecond=0
+        )
+
         if price_in_source_currency == Decimal(0):
             return [
                 self.generate_charge_line(
                     f"{linked_datasource_id}-01",
                     datasource_id,
                     organization_id,
-                    date(
-                        self.billing_start_date.year,
-                        self.billing_start_date.month,
-                        min(daily_expenses.keys()),
-                    ),
-                    date(
-                        self.billing_start_date.year,
-                        self.billing_start_date.month,
-                        max(daily_expenses.keys()),
-                    ),
+                    start_dt,
+                    end_dt,
                     Decimal(0),
                     datasource_name,
                 )
@@ -603,16 +605,8 @@ class AuthorizationProcessor:
                 f"{linked_datasource_id}-01",
                 datasource_id,
                 organization_id,
-                date(
-                    self.billing_start_date.year,
-                    self.billing_start_date.month,
-                    min(daily_expenses.keys()),
-                ),
-                date(
-                    self.billing_start_date.year,
-                    self.billing_start_date.month,
-                    max(daily_expenses.keys()),
-                ),
+                start_dt,
+                end_dt,
                 price_in_target_currency,
                 datasource_name,
             )
@@ -647,8 +641,8 @@ class AuthorizationProcessor:
         daily_expenses: dict[int, Decimal],
         agreement: dict[str, Any],
         entitlement_id: str | None,
-        entitlement_start_date: str | None,
-        entitlement_termination_date: str | None,
+        entitlement_start_date: str | None = None,
+        entitlement_termination_date: str | None = None,
     ) -> list[Refund]:
         """
         This function generates a list of refunds for a billing period, considering
@@ -657,7 +651,7 @@ class AuthorizationProcessor:
         refund_lines = []
         trial_days: set[int] = set()
         trial_start_date, trial_end_date = get_trial_dates(agreement=agreement)
-        if trial_start_date and trial_end_date and trial_end_date >= self.billing_start_date.date():
+        if trial_start_date and trial_end_date and trial_end_date >= self.billing_start_date:
             trial_info = self.get_trial_info(
                 trial_start_date,
                 trial_end_date,
@@ -693,8 +687,26 @@ class AuthorizationProcessor:
                 refund_lines.append(
                     Refund(
                         ent_amount,
-                        date(self.billing_start_date.year, self.billing_start_date.month, r_start),
-                        date(self.billing_start_date.year, self.billing_start_date.month, r_end),
+                        datetime(
+                            year=self.billing_start_date.year,
+                            month=self.billing_start_date.month,
+                            day=r_start,
+                            hour=0,
+                            minute=0,
+                            second=0,
+                            microsecond=0,
+                            tzinfo=timezone.utc,
+                        ),
+                        datetime(
+                            year=self.billing_start_date.year,
+                            month=self.billing_start_date.month,
+                            day=r_end,
+                            hour=23,
+                            minute=59,
+                            second=59,
+                            microsecond=0,
+                            tzinfo=timezone.utc,
+                        ),
                         f"Refund due to active entitlement {entitlement_id}",
                     )
                 )
@@ -727,8 +739,21 @@ class AuthorizationProcessor:
         )
         ent_events = entitlement.get("events", {})
         entitlement_id = entitlement.get("id")
-        entitlement_start_date = ent_events.get("redeemed", {}).get("at")
-        entitlement_termination_date = ent_events.get("terminated", {}).get("at")
+        entitlement_start_date: str | None = ent_events.get("redeemed", {}).get("at")
+        entitlement_termination_date: str | None = ent_events.get("terminated", {}).get("at")
+        if entitlement_start_date:
+            entitlement_start_date = (
+                datetime.fromisoformat(entitlement_start_date.replace("Z", "+00:00"))
+                .replace(hour=0, minute=0, second=0, microsecond=0, tzinfo=timezone.utc)
+                .isoformat()
+            )
+
+        if entitlement_termination_date:
+            entitlement_termination_date = (
+                datetime.fromisoformat(entitlement_termination_date.replace("Z", "+00:00"))
+                .replace(hour=23, minute=59, second=59, microsecond=0, tzinfo=timezone.utc)
+                .isoformat()
+            )
         billing_percentage = get_billing_percentage(agreement=agreement)
         idx = 2
         charges = []
@@ -767,19 +792,37 @@ class AuthorizationProcessor:
 
     def get_trial_info(
         self,
-        trial_start_date: date,
-        trial_end_date: date,
+        trial_start_date: datetime,
+        trial_end_date: datetime,
     ) -> TrialInfo:
         # Trial period can start or end on month other than billing month period.
         # In this situation, we need to limit refunded expenses
         # to a period overlapping with billing month.
         # Example, billing month is June 1-30, a trial period is May 17 - June 17
         # We need to refund expenses from June 1st to June 17th
-        trial_refund_from = max(trial_start_date, self.billing_start_date.date())
-        trial_refund_to = min(trial_end_date, self.billing_end_date.date())
+        trial_refund_from = max(trial_start_date, self.billing_start_date)
+        trial_refund_to = min(trial_end_date, self.billing_end_date)
         trial_days = {
             dt.date().day for dt in rrule(DAILY, dtstart=trial_refund_from, until=trial_refund_to)
         }
+        trial_refund_from = datetime(
+            trial_refund_from.year,
+            trial_refund_from.month,
+            trial_refund_from.day,
+            0,
+            0,
+            0,
+            tzinfo=timezone.utc,
+        )
+        trial_refund_to = datetime(
+            trial_refund_to.year,
+            trial_refund_to.month,
+            trial_refund_to.day,
+            23,
+            59,
+            59,
+            tzinfo=timezone.utc,
+        )
         return TrialInfo(trial_days, trial_refund_from, trial_refund_to)
 
     def get_entitlement_days(
@@ -819,8 +862,8 @@ class AuthorizationProcessor:
         vendor_external_id: str,
         datasource_id: str,
         organization_id: str,
-        start_date: date,
-        end_date: date,
+        start_date: datetime,
+        end_date: datetime,
         price: Decimal,
         datasource_name: str,
         description: str = "",
@@ -867,6 +910,27 @@ class AuthorizationProcessor:
 def get_trial_dates(agreement: dict[str, Any]) -> tuple[Any, Any]:
     trial_start = get_trial_start_date(agreement)
     trial_end = get_trial_end_date(agreement)
+    if trial_start:
+        trial_start = datetime(
+            year=trial_start.year,
+            month=trial_start.month,
+            day=trial_start.day,
+            hour=0,
+            minute=0,
+            microsecond=0,
+            tzinfo=timezone.utc,
+        )
+    if trial_end:
+        trial_end = datetime(
+            year=trial_end.year,
+            month=trial_end.month,
+            day=trial_end.day,
+            hour=23,
+            minute=59,
+            second=59,
+            microsecond=0,
+            tzinfo=timezone.utc,
+        )
     return trial_start, trial_end
 
 
