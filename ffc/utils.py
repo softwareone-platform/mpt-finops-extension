@@ -5,9 +5,9 @@ def find_first(func, iterable, default=None):
     return next(filter(func, iterable), default)
 
 
-
-def compute_daily_expenses(cumulative_expenses:dict[int, Decimal],
-                           last_day_of_month:int)->dict[int,Decimal]:
+def compute_daily_expenses(
+    cumulative_expenses: dict[int, Decimal], last_day_of_month: int
+) -> dict[int, Decimal]:
     """
     This function computes the daily expenses based on the given cumulative expenses.
     It also fills in any missing days using the previous days' cumulative value.
@@ -20,11 +20,10 @@ def compute_daily_expenses(cumulative_expenses:dict[int, Decimal],
     daily_expenses = {}
     previous_amount = Decimal(0)
     for day in range(1, last_day_of_month + 1):
-        current = Decimal(cumulative_expenses.get(day,previous_amount))
+        current = Decimal(cumulative_expenses.get(day, previous_amount))
         daily_expenses[day] = Decimal(current - previous_amount)
         previous_amount = current
     return daily_expenses
-
 
 
 async def async_groupby(

@@ -116,7 +116,7 @@ class AuthorizationProcessor:
         self.mpt_client = MPTAsyncClient()
         self.exchange_rate_client = ExchangeRatesAsyncClient()
         self.billing_start_date = datetime(day=1, month=self.month, year=self.year, tzinfo=UTC)
-        self.billing_end_date = self.billing_start_date + relativedelta(months=1, days=-1)
+        self.billing_end_date = self.billing_start_date + relativedelta(months=1, seconds=-1)
         self.DECIMAL_DIGITS = 4
         self.DECIMAL_PRECISION = Decimal("10") ** -self.DECIMAL_DIGITS
         self.exchange_rates: dict[str, Any] = {}
@@ -170,6 +170,7 @@ class AuthorizationProcessor:
         """
         if not self.dry_run:
             return await func(*args, **kwargs)
+        return None
 
     def build_filepath(self) -> str:
         """
@@ -228,7 +229,7 @@ class AuthorizationProcessor:
 
         async with self.acquire_semaphore():
             try:
-                active_agreements =  await self.mpt_client.count_active_agreements(
+                active_agreements = await self.mpt_client.count_active_agreements(
                     self.authorization_id,
                     self.billing_start_date,
                     self.billing_end_date,
@@ -545,8 +546,8 @@ class AuthorizationProcessor:
                     f"{linked_datasource_id}-01",
                     datasource_id,
                     organization_id,
-                    self.billing_start_date.date(),
-                    self.billing_end_date.date(),
+                    self.billing_start_date,
+                    self.billing_end_date,
                     Decimal(0),
                     datasource_name,
                     description="No charges available for this datasource.",
@@ -558,22 +559,17 @@ class AuthorizationProcessor:
         price_in_source_currency = (amount * billing_percentage / Decimal(100)).quantize(
             self.DECIMAL_PRECISION
         )
+        start_dt = self.billing_start_date.replace(day=min(daily_expenses.keys())).date()
+        end_dt = self.billing_start_date.replace(day=max(daily_expenses.keys())).date()
+
         if price_in_source_currency == Decimal(0):
             return [
                 self.generate_charge_line(
                     f"{linked_datasource_id}-01",
                     datasource_id,
                     organization_id,
-                    date(
-                        self.billing_start_date.year,
-                        self.billing_start_date.month,
-                        min(daily_expenses.keys()),
-                    ),
-                    date(
-                        self.billing_start_date.year,
-                        self.billing_start_date.month,
-                        max(daily_expenses.keys()),
-                    ),
+                    start_dt,
+                    end_dt,
                     Decimal(0),
                     datasource_name,
                 )
@@ -603,16 +599,8 @@ class AuthorizationProcessor:
                 f"{linked_datasource_id}-01",
                 datasource_id,
                 organization_id,
-                date(
-                    self.billing_start_date.year,
-                    self.billing_start_date.month,
-                    min(daily_expenses.keys()),
-                ),
-                date(
-                    self.billing_start_date.year,
-                    self.billing_start_date.month,
-                    max(daily_expenses.keys()),
-                ),
+                start_dt,
+                end_dt,
                 price_in_target_currency,
                 datasource_name,
             )
@@ -647,8 +635,8 @@ class AuthorizationProcessor:
         daily_expenses: dict[int, Decimal],
         agreement: dict[str, Any],
         entitlement_id: str | None,
-        entitlement_start_date: str | None,
-        entitlement_termination_date: str | None,
+        entitlement_start_date: str | None = None,
+        entitlement_termination_date: str | None = None,
     ) -> list[Refund]:
         """
         This function generates a list of refunds for a billing period, considering
@@ -693,8 +681,16 @@ class AuthorizationProcessor:
                 refund_lines.append(
                     Refund(
                         ent_amount,
-                        date(self.billing_start_date.year, self.billing_start_date.month, r_start),
-                        date(self.billing_start_date.year, self.billing_start_date.month, r_end),
+                        date(
+                            year=self.billing_start_date.year,
+                            month=self.billing_start_date.month,
+                            day=r_start,
+                        ),
+                        date(
+                            year=self.billing_start_date.year,
+                            month=self.billing_start_date.month,
+                            day=r_end,
+                        ),
                         f"Refund due to active entitlement {entitlement_id}",
                     )
                 )
@@ -800,12 +796,14 @@ class AuthorizationProcessor:
         Returns:
             Set[int]: Set of day numbers (1–31) representing entitlement days.
         """
-        start_date = max(datetime.fromisoformat(entitlement_start_date), self.billing_start_date)
+        start_date = max(
+            datetime.fromisoformat(entitlement_start_date).date(), self.billing_start_date.date()
+        )
         end_date = min(
-            datetime.fromisoformat(entitlement_end_date)
+            datetime.fromisoformat(entitlement_end_date).date()
             if entitlement_end_date
-            else self.billing_end_date,
-            self.billing_end_date,
+            else self.billing_end_date.date(),
+            self.billing_end_date.date(),
         )
         entitlement_days = {
             dt.date().day
@@ -846,8 +844,19 @@ class AuthorizationProcessor:
                     },
                 },
                 "period": {
-                    "start": start_date.isoformat(),
-                    "end": end_date.isoformat(),
+                    "start": datetime(
+                        start_date.year, start_date.month, start_date.day, tzinfo=UTC
+                    ).isoformat(),
+                    "end": datetime(
+                        end_date.year,
+                        end_date.month,
+                        end_date.day,
+                        hour=23,
+                        minute=59,
+                        second=59,
+                        microsecond=0,
+                        tzinfo=UTC,
+                    ).isoformat(),
                 },
                 "price": {
                     "unitPP": str(price.quantize(self.DECIMAL_PRECISION)),

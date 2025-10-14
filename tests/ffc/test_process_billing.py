@@ -1,7 +1,7 @@
 import json
 import logging
 import tempfile
-from datetime import date
+from datetime import UTC, date, datetime
 from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import httpx
@@ -455,9 +455,10 @@ async def test_generate_datasource_charges_empty_daily_expenses(
     billing_process_instance, organization_data, agreement_data_no_trial
 ):
     """if no daily_expenses are provided, there will be no charges for the given datasource"""
+    agreement_data = agreement_data_no_trial()
     response = await billing_process_instance.generate_datasource_charges(
         organization=organization_data,
-        agreement=agreement_data_no_trial[0],
+        agreement=agreement_data[0],
         linked_datasource_id="34654563456",
         linked_datasource_type="AWS",
         datasource_id="1234",
@@ -470,7 +471,7 @@ async def test_generate_datasource_charges_empty_daily_expenses(
         '"reference": "1234"}, "search": {"subscription": '
         '{"criteria": "subscription.externalIds.vendor", "value": "FORG-4801-6958-2949"}, '
         '"item": {"criteria": "item.externalIds.vendor", "value": ""}}, '
-        '"period": {"start": "2025-06-01", "end": "2025-06-30"}, '
+        '"period": {"start": "2025-06-01T00:00:00+00:00", "end": "2025-06-30T23:59:59+00:00"}, '
         '"price": {"unitPP": "0.0000", "PPx1": "0.0000"}, '
         '"quantity": 1, "description": {"value1": "Test", '
         '"value2": "No charges available for this datasource."}, "segment": "COM"}\n'
@@ -481,52 +482,228 @@ async def test_generate_datasource_charges_empty_daily_expenses(
     )
 
 
+@pytest.mark.parametrize("billing_process_instance", [{"month": 9}], indirect=True)
 @pytest.mark.asyncio()
-async def test_generate_datasource_charges_with_daily_expenses(
+async def test_generate_datasource_charges_with_daily_expenses_active_trial_terminated_entitlements(
     billing_process_instance,
     organization_data,
     agreement_data_with_trial,
     daily_expenses,
     exchange_rates,
-    entitlement,
+    fetch_active_entitlement,
+    caplog,
+):
+    fetch_active_entitlement["events"]["terminated"] = {
+        "at": "2025-09-28T07:47:19.142190Z",
+        "by": {"id": "FTKN-4573-9711", "type": "system", "name": "Microsoft CSP Extension"},
+    }
+
+    billing_process_instance.exchange_rate_client = AsyncMock()
+    billing_process_instance.ffc_client = AsyncMock()
+    billing_process_instance.ffc_client.fetch_entitlement = AsyncMock(
+        return_value=fetch_active_entitlement
+    )
+    billing_process_instance.exchange_rate_client.fetch_exchange_rates = AsyncMock(
+        return_value=exchange_rates
+    )
+    agreement_data_with_trial = agreement_data_with_trial(
+        parameters={
+            "fulfillment": [
+                {
+                    "id": "PAR-7208-0459-0007",
+                    "externalId": "dueDate",
+                    "name": "Due date",
+                    "type": "Date",
+                    "phase": "Fulfillment",
+                },
+                {
+                    "id": "PAR-7208-0459-0008",
+                    "externalId": "isNewUser",
+                    "name": "Is new user?",
+                    "type": "Checkbox",
+                    "phase": "Fulfillment",
+                },
+                {
+                    "id": "PAR-7208-0459-0009",
+                    "externalId": "trialStartDate",
+                    "name": "Trial period start date",
+                    "type": "Date",
+                    "phase": "Fulfillment",
+                    "displayValue": "2025-08-27",
+                    "value": "2025-08-27",
+                },
+                {
+                    "id": "PAR-7208-0459-0010",
+                    "externalId": "trialEndDate",
+                    "name": "Trial period end date",
+                    "type": "Date",
+                    "phase": "Fulfillment",
+                    "displayValue": "2025-09-15",
+                    "value": "2025-09-15",
+                },
+                {
+                    "id": "PAR-7208-0459-0011",
+                    "externalId": "billedPercentage",
+                    "name": "Billed percentage of monthly spend",
+                    "type": "SingleLineText",
+                    "phase": "Fulfillment",
+                    "displayValue": "4",
+                    "value": "4",
+                },
+            ]
+        }
+    )
+
+    response = await billing_process_instance.generate_datasource_charges(
+        organization=organization_data,
+        agreement=agreement_data_with_trial[0],
+        linked_datasource_id="34654563456",
+        linked_datasource_type="AWS",
+        datasource_id="34654563488",
+        datasource_name="Test",
+        daily_expenses=daily_expenses,
+    )
+    assert isinstance(response[0], str)
+    assert (
+        response[0] == '{"externalIds": {"vendor": "34654563456-01", "invoice": "-", '
+        '"reference": "34654563488"}, "search": {"subscription": '
+        '{"criteria": "subscription.externalIds.vendor", "value": '
+        '"FORG-4801-6958-2949"}, "item": {"criteria": '
+        '"item.externalIds.vendor", "value": ""}}, "period": '
+        '{"start": "2025-09-01T00:00:00+00:00", "end": "2025-09-30T23:59:59+00:00"}, '
+        '"price": {"unitPP": "183.9829", "PPx1": "183.9829"},'
+        ' "quantity": 1, "description": {"value1": "Test", "value2": ""},'
+        ' "segment": "COM"}\n'
+    )
+    assert (
+        response[1] == '{"externalIds": {"vendor": "34654563456-02", "invoice": "-", '
+        '"reference": "34654563488"}, '
+        '"search": {"subscription": {"criteria": "subscription.externalIds.vendor",'
+        ' "value": "FORG-4801-6958-2949"}, "item": {"criteria": "item.externalIds.vendor",'
+        ' "value": ""}}, "period": {"start": "2025-09-01T00:00:00+00:00", '
+        '"end": "2025-09-15T23:59:59+00:00"},'
+        ' "price": {"unitPP": "-39.1447", "PPx1": "-39.1447"}, "quantity": 1, '
+        '"description": {"value1": "Test", "value2": "Refund due to trial period '
+        '(from 27 Aug 2025 to 15 Sep 2025)"}, "segment": "COM"}\n'
+    )
+    assert (
+        response[2] == '{"externalIds": {"vendor": "34654563456-03", "invoice": "-", '
+        '"reference": "34654563488"}, "search": {"subscription": '
+        '{"criteria": "subscription.externalIds.vendor", "value": "FORG-4801-6958-2949"},'
+        ' "item": {"criteria": "item.externalIds.vendor", "value": ""}}, '
+        '"period": {"start": "2025-09-16T00:00:00+00:00", "end": "2025-09-28T23:59:59+00:00"},'
+        ' "price": {"unitPP": "-137.9294", "PPx1": "-137.9294"}, '
+        '"quantity": 1, "description": {"value1": "Test", "value2": '
+        '"Refund due to active entitlement FENT-9763-4488-4624"}, "segment": "COM"}\n'
+    )
+    assert (
+        "[AUT-5305-9928] : organization_id='FORG-4801-6958-2949'"
+        " linked_datasource_id='34654563456' datasource_name='Test' - "
+        "amount=Decimal('5326.0458') billing_percentage=Decimal('4') "
+        "price_in_source_currency=Decimal('213.0418') "
+        "exchange_rate=Decimal('0.8636') price_in_target_currency=Decimal('183.98289848')\n"
+    )
+
+
+@pytest.mark.parametrize("billing_process_instance", [{"month": 9}], indirect=True)
+@pytest.mark.asyncio()
+async def test_generate_datasource_charges_with_daily_expenses_active_trial_and_active_entitlements(
+    billing_process_instance,
+    organization_data,
+    agreement_data_with_trial,
+    daily_expenses,
+    exchange_rates,
+    fetch_active_entitlement,
     caplog,
 ):
     """if there are daily_expenses, charges will be generated for the given datasource"""
     billing_process_instance.exchange_rate_client = AsyncMock()
     billing_process_instance.ffc_client = AsyncMock()
-    billing_process_instance.ffc_client.fetch_entitlement = AsyncMock(return_value=entitlement)
+    billing_process_instance.ffc_client.fetch_entitlement = AsyncMock(
+        return_value=fetch_active_entitlement
+    )
     billing_process_instance.exchange_rate_client.fetch_exchange_rates = AsyncMock(
         return_value=exchange_rates
     )
-    with caplog.at_level(logging.INFO):
-        response = await billing_process_instance.generate_datasource_charges(
-            organization=organization_data,
-            agreement=agreement_data_with_trial[0],
-            linked_datasource_id="34654563456",
-            linked_datasource_type="AWS",
-            datasource_id="34654563488",
-            datasource_name="Test",
-            daily_expenses=daily_expenses,
-        )
+    agreement_data_with_trial = agreement_data_with_trial(
+        parameters={
+            "fulfillment": [
+                {
+                    "id": "PAR-7208-0459-0007",
+                    "externalId": "dueDate",
+                    "name": "Due date",
+                    "type": "Date",
+                    "phase": "Fulfillment",
+                },
+                {
+                    "id": "PAR-7208-0459-0008",
+                    "externalId": "isNewUser",
+                    "name": "Is new user?",
+                    "type": "Checkbox",
+                    "phase": "Fulfillment",
+                },
+                {
+                    "id": "PAR-7208-0459-0009",
+                    "externalId": "trialStartDate",
+                    "name": "Trial period start date",
+                    "type": "Date",
+                    "phase": "Fulfillment",
+                    "displayValue": "2025-08-27",
+                    "value": "2025-08-27",
+                },
+                {
+                    "id": "PAR-7208-0459-0010",
+                    "externalId": "trialEndDate",
+                    "name": "Trial period end date",
+                    "type": "Date",
+                    "phase": "Fulfillment",
+                    "displayValue": "2025-09-26",
+                    "value": "2025-09-26",
+                },
+                {
+                    "id": "PAR-7208-0459-0011",
+                    "externalId": "billedPercentage",
+                    "name": "Billed percentage of monthly spend",
+                    "type": "SingleLineText",
+                    "phase": "Fulfillment",
+                    "displayValue": "4",
+                    "value": "4",
+                },
+            ]
+        }
+    )
+
+    response = await billing_process_instance.generate_datasource_charges(
+        organization=organization_data,
+        agreement=agreement_data_with_trial[0],
+        linked_datasource_id="34654563456",
+        linked_datasource_type="AWS",
+        datasource_id="34654563488",
+        datasource_name="Test",
+        daily_expenses=daily_expenses,
+    )
     assert isinstance(response[0], str)
     assert (
         response[0] == '{"externalIds": {"vendor": "34654563456-01", "invoice": "-", "reference": '
         '"34654563488"}, "search": {"subscription": {"criteria": '
         '"subscription.externalIds.vendor", "value": "FORG-4801-6958-2949"}, "item": '
         '{"criteria": "item.externalIds.vendor", "value": ""}}, "period": {"start": '
-        '"2025-06-01", "end": "2025-06-30"}, "price": {"unitPP": "183.9829", "PPx1": '
+        '"2025-09-01T00:00:00+00:00", "end": "2025-09-30T23:59:59+00:00"}, '
+        '"price": {"unitPP": "183.9829", "PPx1": '
         '"183.9829"}, "quantity": 1, "description": {"value1": "Test", "value2": ""}, '
         '"segment": "COM"}\n'
     )
     assert (
-        response[1] == '{"externalIds": {"vendor": "34654563456-02", "invoice": "-", "reference": '
-        '"34654563488"}, "search": {"subscription": {"criteria": '
-        '"subscription.externalIds.vendor", "value": "FORG-4801-6958-2949"}, "item": '
-        '{"criteria": "item.externalIds.vendor", "value": ""}}, "period": {"start": '
-        '"2025-06-01", "end": "2025-06-15"}, "price": {"unitPP": "-39.1447", "PPx1": '
-        '"-39.1447"}, "quantity": 1, "description": {"value1": "Test", "value2": '
-        '"Refund due to trial period (from 01 Jun 2025 to 15 Jun 2025)"}, '
-        '"segment": "COM"}\n'
+        response[1] == '{"externalIds": {"vendor": "34654563456-02", "invoice": "-",'
+        ' "reference": "34654563488"}, "search": {"subscription": '
+        '{"criteria": "subscription.externalIds.vendor", '
+        '"value": "FORG-4801-6958-2949"}, "item": '
+        '{"criteria": "item.externalIds.vendor", "value": ""}},'
+        ' "period": {"start": "2025-09-01T00:00:00+00:00", "end": "2025-09-26T23:59:59+00:00"}, '
+        '"price": {"unitPP": "-153.1250", "PPx1": "-153.1250"}, '
+        '"quantity": 1, "description": {"value1": "Test", "value2": '
+        '"Refund due to trial period (from 27 Aug 2025 to 26 Sep 2025)"},'
+        ' "segment": "COM"}\n'
     )
     assert (
         "[AUT-5305-9928] : organization_id='FORG-4801-6958-2949' "
@@ -544,7 +721,6 @@ async def test_generate_datasource_charges_with_price_in_source_currency_eq_0(
     organization_data,
     daily_expenses,
     exchange_rates,
-    entitlement,
     agreement_data_with_trial,
     caplog,
 ):
@@ -552,25 +728,28 @@ async def test_generate_datasource_charges_with_price_in_source_currency_eq_0(
     the monthly charge file with 0"""
     billing_process_instance.exchange_rate_client = AsyncMock()
     billing_process_instance.ffc_client = AsyncMock()
-    billing_process_instance.ffc_client.fetch_entitlement = AsyncMock(return_value=entitlement)
     billing_process_instance.exchange_rate_client.fetch_exchange_rates = AsyncMock(
         return_value=exchange_rates
     )
-    agreement_data_with_trial[0]["parameters"]["fulfillment"] = [
-        {
-            "id": "PAR-7208-0459-0011",
-            "externalId": "billedPercentage",
-            "name": "Billed percentage of monthly spend",
-            "type": "SingleLineText",
-            "phase": "Fulfillment",
-            "displayValue": "0",
-            "value": "0",
+    data = agreement_data_with_trial(
+        parameters={
+            "fulfillment": [
+                {
+                    "id": "PAR-7208-0459-0011",
+                    "externalId": "billedPercentage",
+                    "name": "Billed percentage of monthly spend",
+                    "type": "SingleLineText",
+                    "phase": "Fulfillment",
+                    "displayValue": "0",
+                    "value": "0",
+                }
+            ]
         }
-    ]
+    )
     with caplog.at_level(logging.INFO):
         response = await billing_process_instance.generate_datasource_charges(
             organization=organization_data,
-            agreement=agreement_data_with_trial[0],
+            agreement=data[0],
             linked_datasource_id="34654563456",
             linked_datasource_type="AWS",
             datasource_id="34654563488",
@@ -584,7 +763,7 @@ async def test_generate_datasource_charges_with_price_in_source_currency_eq_0(
         '"search": {"subscription": {"criteria": "subscription.externalIds.vendor", '
         '"value": "FORG-4801-6958-2949"}, '
         '"item": {"criteria": "item.externalIds.vendor", "value": ""}}, '
-        '"period": {"start": "2025-06-01", "end": "2025-06-30"}, '
+        '"period": {"start": "2025-06-01T00:00:00+00:00", "end": "2025-06-30T23:59:59+00:00"}, '
         '"price": {"unitPP": "0.0000", "PPx1": "0.0000"}, "quantity": 1,'
         ' "description": {"value1": "Test", "value2": ""}, "segment": "COM"}\n'
     )
@@ -598,7 +777,6 @@ async def test_generate_datasource_charges_with_no_entitlement(
     organization_data,
     daily_expenses,
     exchange_rates,
-    entitlement,
     caplog,
 ):
     """if there are no entitlements, the function still writes the existing charges for the
@@ -609,10 +787,11 @@ async def test_generate_datasource_charges_with_no_entitlement(
     billing_process_instance.exchange_rate_client.fetch_exchange_rates = AsyncMock(
         return_value=exchange_rates
     )
+    agreement_data = agreement_data_with_trial()
     with caplog.at_level(logging.INFO):
         response = await billing_process_instance.generate_datasource_charges(
             organization=organization_data,
-            agreement=agreement_data_with_trial[0],
+            agreement=agreement_data[0],
             linked_datasource_id="34654563456",
             linked_datasource_type="AWS",
             datasource_id="34654563488",
@@ -626,7 +805,7 @@ async def test_generate_datasource_charges_with_no_entitlement(
         '"search": {"subscription": {"criteria": "subscription.externalIds.vendor", '
         '"value": "FORG-4801-6958-2949"}, '
         '"item": {"criteria": "item.externalIds.vendor", "value": ""}}, '
-        '"period": {"start": "2025-06-01", "end": "2025-06-30"}, '
+        '"period": {"start": "2025-06-01T00:00:00+00:00", "end": "2025-06-30T23:59:59+00:00"}, '
         '"price": {"unitPP": "183.9829", "PPx1": "183.9829"}, '
         '"quantity": 1, "description": {"value1": "Test", "value2": ""}, "segment": "COM"}\n'
     )
@@ -635,7 +814,8 @@ async def test_generate_datasource_charges_with_no_entitlement(
         '"34654563488"}, "search": {"subscription": {"criteria": '
         '"subscription.externalIds.vendor", "value": "FORG-4801-6958-2949"}, "item": '
         '{"criteria": "item.externalIds.vendor", "value": ""}}, "period": {"start": '
-        '"2025-06-01", "end": "2025-06-15"}, "price": {"unitPP": "-39.1447", "PPx1": '
+        '"2025-06-01T00:00:00+00:00", "end": "2025-06-15T23:59:59+00:00"},'
+        ' "price": {"unitPP": "-39.1447", "PPx1": '
         '"-39.1447"}, "quantity": 1, "description": {"value1": "Test", "value2": '
         '"Refund due to trial period (from 01 Jun 2025 to 15 Jun 2025)"}, '
         '"segment": "COM"}\n'
@@ -716,9 +896,10 @@ def test_generate_refunds_success(
 ):
     """if there are a  trial and an entitlements active, a refund will be generated.
     Trials get priority over entitlements if the periods overlap."""
+    agreement_data = agreement_data_with_trial()
     response = billing_process_instance.generate_refunds(
         daily_expenses=daily_expenses,
-        agreement=agreement_data_with_trial[0],
+        agreement=agreement_data[0],
         entitlement_id="FENT-2502-5308-4600",
         entitlement_start_date="2025-06-01T08:22:44.126636Z",
         entitlement_termination_date="2025-06-10T08:22:44.126636Z",
@@ -735,9 +916,10 @@ def test_generate_refunds_success_trial_and_entitlements(
 ):
     """if there are a  trial and an entitlements active, a refund will be generated.
     Trials get priority over entitlements if the periods overlap."""
+    data = agreement_data_with_trial()
     response = billing_process_instance.generate_refunds(
         daily_expenses=daily_expenses,
-        agreement=agreement_data_with_trial[0],
+        agreement=data[0],
         entitlement_id="FENT-2502-5308-4600",
         entitlement_start_date="2025-06-01T08:22:44.126636Z",
         entitlement_termination_date="2025-06-30T08:22:44.126636Z",
@@ -749,37 +931,36 @@ def test_generate_refunds_success_trial_and_entitlements(
     assert response[0].end_date == date(2025, 6, 15)
     assert response[1].description == "Refund due to active entitlement FENT-2502-5308-4600"
     assert response[1].start_date == date(2025, 6, 16)
-    assert response[1].end_date == date(2025, 6, 29)
+    assert response[1].end_date == date(2025, 6, 30)
 
 
-def test_generate_refunds_no_trial_days(
+def test_generate_refunds_no_trial_days_active_entitlement(
     daily_expenses, billing_process_instance, agreement_data_no_trial
 ):
     """if only an entitlement is active, there will be a refund for that period."""
+    agreement_data = agreement_data_no_trial()
     response = billing_process_instance.generate_refunds(
         daily_expenses=daily_expenses,
-        agreement=agreement_data_no_trial[0],
+        agreement=agreement_data[0],
         entitlement_id="FENT-2502-5308-4600",
         entitlement_start_date="2025-06-01T08:22:44.126636Z",
-        entitlement_termination_date="2025-06-30T08:22:44.126636Z",
     )
     assert isinstance(response, list)
     assert isinstance(response[0], Refund)
     assert response[0].description == "Refund due to active entitlement FENT-2502-5308-4600"
     assert response[0].start_date == date(2025, 6, 1)
-    assert response[0].end_date == date(2025, 6, 29)
+    assert response[0].end_date == date(2025, 6, 30)
 
 
 def test_generate_refunds_no_trial_days_no_entitlement_days(
     daily_expenses, billing_process_instance, agreement_data_no_trial
 ):
     """if there are no trials and no entitlements active, there will be no refund."""
+    data = agreement_data_no_trial()
     response = billing_process_instance.generate_refunds(
         daily_expenses=daily_expenses,
-        agreement=agreement_data_no_trial[0],
+        agreement=data[0],
         entitlement_id="FENT-2502-5308-4600",
-        entitlement_start_date="",
-        entitlement_termination_date="",
     )
     assert isinstance(response, list)
     assert len(response) == 0
@@ -791,12 +972,12 @@ def test_generate_refunds_no_entitlement_end_date(
     """if there is only a trial period and the entitlement_termination_date is missing,
     the billing date will be used as value for calculating the refund. The Trials get priority over
     entitlements."""
+    data = agreement_data_with_trial()
     response = billing_process_instance.generate_refunds(
         daily_expenses=daily_expenses,
-        agreement=agreement_data_with_trial[0],
+        agreement=data[0],
         entitlement_id="FENT-2502-5308-4600",
         entitlement_start_date="2025-06-01T08:22:44.126636Z",
-        entitlement_termination_date="",
     )
     assert isinstance(response, list)
     assert isinstance(response[0], Refund)
@@ -805,10 +986,35 @@ def test_generate_refunds_no_entitlement_end_date(
     assert response[0].end_date == date(2025, 6, 15)
     assert response[1].description == "Refund due to active entitlement FENT-2502-5308-4600"
     assert response[1].start_date == date(2025, 6, 16)
-    assert response[1].end_date == date(2025, 6, 29)
+    assert response[1].end_date == date(2025, 6, 30)
 
 
 # ----------------------------------------------------------------------
+# - Test get_entitlement_days()
+def test_get_entitlement_days_with_no_entitlement_end_date(billing_process_instance):
+    trial_days = set(range(1, 21))
+    entitlement_start_date = "2025-06-01T08:22:44.126636Z"
+    response = billing_process_instance.get_entitlement_days(
+        trial_days=trial_days, entitlement_start_date=entitlement_start_date
+    )
+    assert isinstance(response, set)
+    assert response == set(range(21, 31))
+
+
+def test_get_entitlement_days_with_entitlement_end_date(billing_process_instance):
+    trial_days = set(range(1, 21))
+    entitlement_start_date = "2025-06-01T08:22:44.126636Z"
+    entitlement_end_date = "2025-06-25T08:22:44.126636Z"
+
+    response = billing_process_instance.get_entitlement_days(
+        trial_days=trial_days,
+        entitlement_start_date=entitlement_start_date,
+        entitlement_end_date=entitlement_end_date,
+    )
+    assert isinstance(response, set)
+    assert response == set(range(21, 26))
+
+
 # - Test process()
 @pytest.mark.asyncio()
 async def test_process_no_count_active_agreements(billing_process_instance, caplog):
@@ -1120,9 +1326,9 @@ async def test_process_billing_with_multiple_authorizations(
 def test_get_trial_days(agreement_data_with_trial):
     trial_start_to_match = date(2025, 6, 1)
     trial_end_to_match = date(2025, 6, 15)
-
+    data = agreement_data_with_trial()
     trial_start, trial_end = get_trial_dates(
-        agreement_data_with_trial[0],
+        data[0],
     )
 
     assert trial_start == trial_start_to_match
@@ -1132,11 +1338,11 @@ def test_get_trial_days(agreement_data_with_trial):
 def test_get_trial_days_partial_overlap(billing_process_instance):
     trial_start = date(2025, 5, 25)
     trial_end = date(2025, 6, 5)
-    billing_start = date(2025, 6, 1)
+    billing_start = datetime(2025, 6, 1, 0, 0, tzinfo=UTC)
 
     trial_info = billing_process_instance.get_trial_info(trial_start, trial_end)
 
-    assert trial_info.refund_from == billing_start
+    assert trial_info.refund_from == billing_start.date()
     assert trial_info.refund_to == trial_end
     assert trial_info.trial_days == set(range(1, 6))
 
@@ -1144,7 +1350,7 @@ def test_get_trial_days_partial_overlap(billing_process_instance):
 def test_get_trial_days_full_month(billing_process_instance):
     trial_start = date(2025, 6, 1)
     trial_end = date(2025, 6, 30)
-    billing_start = date(2025, 6, 1)
+    billing_start = datetime(2025, 6, 1, 0, 0, tzinfo=UTC).date()
 
     trial_info = billing_process_instance.get_trial_info(trial_start, trial_end)
 
