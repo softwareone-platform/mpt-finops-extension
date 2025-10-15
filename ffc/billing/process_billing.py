@@ -298,7 +298,7 @@ class AuthorizationProcessor:
                             authorization_id=self.authorization_id,
                             result=ProcessResult.JOURNAL_GENERATED,
                         )
-                        result_info.journal_id = (created_journal or {}).get("id", "-")
+                        result_info.journal_id = (created_journal or {}).get("id", "")
                         return result_info
                     else:
                         result_info = ProcessResultInfo(

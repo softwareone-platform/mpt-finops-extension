@@ -2,26 +2,32 @@ import asyncio
 import functools
 import logging
 import os
+from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
 import httpx
 from adaptive_cards import card_types as ct
 from adaptive_cards.actions import ActionOpenUrl
 from adaptive_cards.card import AdaptiveCard
-from adaptive_cards.containers import Column, ColumnSet
+from adaptive_cards.card_types import MSTeams, MSTeamsCardWidth
+from adaptive_cards.containers import Column, ColumnSet, Container
 from adaptive_cards.elements import TextBlock
 from django.conf import settings
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from markdown_it import MarkdownIt
 from mpt_extension_sdk.mpt_http.base import MPTClient
-from mpt_extension_sdk.mpt_http.mpt import get_rendered_template, notify
+from mpt_extension_sdk.mpt_http.mpt import (
+    get_rendered_template,
+    notify,
+)
 
 from ffc.flows.order import OrderContext
 from ffc.parameters import PARAM_CONTACT, get_ordering_parameter
 
 logger = logging.getLogger(__name__)
-NotifyCategories = Enum("NotifyCategories", settings.MPT_NOTIFY_CATEGORIES)
+NotifyCategories = Enum("NotifyCategories", settings.MPT_NOTIFY_CATEGORIES)  # type: ignore[misc]
 
 
 def dateformat(date_string):
@@ -39,6 +45,7 @@ env = Environment(
 )
 
 env.filters["dateformat"] = dateformat
+
 
 def mpt_notify(
     mpt_client,
@@ -117,9 +124,9 @@ def send_mpt_notification(client: MPTClient, order_context: type[OrderContext]) 
         "portal_base_url": settings.MPT_PORTAL_BASE_URL,
     }
     buyer_name = order_context.order["agreement"]["buyer"]["name"]
-    subject = f"Order status update {order_context.order_id} " f"for {buyer_name}"
+    subject = f"Order status update {order_context.order_id} for {buyer_name}"
     if order_context.order["status"] == "Querying":
-        subject = f"This order need your attention {order_context.order_id} " f"for {buyer_name}"
+        subject = f"This order need your attention {order_context.order_id} for {buyer_name}"
     mpt_notify(
         client,
         order_context.order["agreement"]["client"]["id"],
@@ -142,41 +149,86 @@ def notify_unhandled_exception_in_teams(process, order_id, traceback):  # pragma
     )
 
 
+@dataclass
+class ColumnHeader:
+    text: str
+    width: str = "auto"
+    horizontal_alignment: ct.HorizontalAlignment | None = None
+
 
 class NotificationDetails:
-    def __init__(self, header: tuple[str, ...], rows: list[tuple[str, ...]]):
+    def __init__(self, header: tuple[str | ColumnHeader, ...], rows: list[tuple[str, ...]]):
         if not all(len(t) == len(header) for t in rows):
             raise ValueError("All rows must have the same number of columns as the header.")
         self.header = header
         self.rows = rows
 
-    def to_column_set(self) -> ColumnSet:
-        columns = []
-        for title in self.header:
-            column = Column(
-                width="auto",
-                items=[
-                    TextBlock(
-                        text=title,
-                        weight=ct.FontWeight.BOLDER,
-                        wrap=True,
-                    )
-                ],
-            )
-            columns.append(column)
+    @staticmethod
+    def _get_header_text_and_width(col: str | ColumnHeader) -> tuple[str, str]:
+        if isinstance(col, ColumnHeader):
+            return col.text, col.width
+        return str(col), "auto"
 
-        column_set = ColumnSet(columns=columns)
-        for row_idx, row in enumerate(self.rows):
-            for col_idx, item in enumerate(row):
-                columns[col_idx].items.append(
-                    TextBlock(
-                        text=item,
-                        wrap=True,
-                        color=ct.Colors.DEFAULT if row_idx % 2 == 0 else ct.Colors.ACCENT,
+    def to_container(self) -> Container:
+        items = []
+
+        # Header row
+        header_columns = []
+        for col in self.header:
+            text, width = self._get_header_text_and_width(col)
+            alignment = (
+                col.horizontal_alignment.value
+                if isinstance(col, ColumnHeader) and col.horizontal_alignment
+                else None
+            )
+            header_columns.append(
+                Column(
+                    width=width,
+                    items=[
+                        TextBlock(
+                            text=text,
+                            horizontal_alignment=alignment,
+                            weight=ct.FontWeight.BOLDER,
+                            wrap=True,
+                            color=ct.Colors.ACCENT,
+                        )
+                    ],
+                )
+            )
+        items.append(ColumnSet(columns=header_columns))
+
+        # Data rows
+        for _idx, row in enumerate(self.rows):
+            row_columns = []
+            for col_idx, value in enumerate(row):
+                col = self.header[col_idx]
+                _, width = self._get_header_text_and_width(col)
+                alignment = (
+                    col.horizontal_alignment.value
+                    if isinstance(col, ColumnHeader) and col.horizontal_alignment
+                    else None
+                )
+                row_columns.append(
+                    Column(
+                        width=width,
+                        items=[
+                            TextBlock(
+                                text=value,
+                                horizontal_alignment=alignment,
+                                wrap=True,
+                                color=ct.Colors.DEFAULT,
+                            )
+                        ],
                     )
                 )
+            items.append(
+                ColumnSet(
+                    columns=row_columns,
+                    spacing=ct.Spacing.SMALL,
+                )
+            )
 
-        return column_set
+        return Container(items=items)
 
 
 async def send_notification(
@@ -190,7 +242,7 @@ async def send_notification(
         logger.warning("MSTeams notifications are disabled.")
         return
 
-    card_items = [
+    card_items: list[Any] = [
         TextBlock(
             text=title,
             size=ct.FontSize.LARGE,
@@ -205,19 +257,17 @@ async def send_notification(
         ),
     ]
     if details:
-        card_items.append(details.to_column_set())
+        card_items.append(details.to_container())
 
+    card_actions = []
     if open_url:
-        card_items.append(
-            ActionOpenUrl(
-                title="Open",
-                url=open_url,
-            )
-        )
+        card_actions.append(ActionOpenUrl(title="Open", url=open_url))
 
-    version: str = "1.4"
-    card: AdaptiveCard = AdaptiveCard.new().version(version).add_items(card_items).create()
-    card.msteams = {"width": "Full"}
+    card = (
+        AdaptiveCard.new().version("1.4").add_items(card_items).add_actions(card_actions).create()
+    )
+
+    card.msteams = MSTeams(width=MSTeamsCardWidth.FULL)
     message = {
         "type": "message",
         "attachments": [
@@ -227,6 +277,7 @@ async def send_notification(
             }
         ],
     }
+
     async with httpx.AsyncClient() as client:
         response = await client.post(
             settings.EXTENSION_CONFIG["MSTEAMS_NOTIFICATIONS_WEBHOOKS_URL"],

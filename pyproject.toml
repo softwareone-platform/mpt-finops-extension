@@ -145,6 +145,15 @@ max-line-length = 100
 warn_no_return = false
 
 [[tool.mypy.overrides]]
+module = "adaptive_cards.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "mpt_extension_sdk.*"
+ignore_missing_imports = true
+
+
+[[tool.mypy.overrides]]
 module = "django.*"
 ignore_missing_imports = true
 
