@@ -3,12 +3,15 @@ import logging
 import textwrap
 from datetime import date
 
+from adaptive_cards import card_types as ct  # type: ignore[import-untyped]
+
 from ffc.billing.dataclasses import (
     NotificationLevel,
     ProcessResult,
     ProcessResultInfo,
 )
 from ffc.notifications import (
+    ColumnHeader,
     NotificationDetails,
     send_exception,
     send_info,
@@ -51,36 +54,40 @@ def _build_notification_title_text(
     )
 
 
-def _build_notification_details(level: NotificationLevel, details: list) -> NotificationDetails:
+def _build_notification_details(details: list) -> NotificationDetails:
     """
     This function builds a NotificationDetails object depending on the
     given notification level.
     """
+    prefix_icon = {
+        "JOURNAL_GENERATED": "✅",
+        "JOURNAL_SKIPPED": "⏭️",
+        "ERROR": "❌",
+    }
 
-    if level == NotificationLevel.SUCCESS:
-        return NotificationDetails(
-            ("Authorization", "Journal"),
-            [
-                (
-                    f"{item.authorization_id}",
-                    f"{item.journal_id or '-'}",
-                )
-                for item in details
-            ],
-        )
-    else:
-        return NotificationDetails(
-            ("Authorization", "Journal", "Status", "Message"),
-            [
-                (
-                    f"{item.authorization_id}",
-                    f"{item.journal_id or '-'}",
-                    f"{item.result.value.upper()}",
-                    "\n\n".join(textwrap.wrap(item.message or "-", width=80)),
-                )
-                for item in details
-            ],
-        )
+    return NotificationDetails(
+        header=(
+            ColumnHeader(
+                "Authorization", width="120px", horizontal_alignment=ct.HorizontalAlignment.CENTER
+            ),
+            ColumnHeader(
+                "Journal", width="120px", horizontal_alignment=ct.HorizontalAlignment.CENTER
+            ),
+            ColumnHeader(
+                "Status", width="50px", horizontal_alignment=ct.HorizontalAlignment.CENTER
+            ),
+            ColumnHeader("Message", width="stretch"),
+        ),
+        rows=[
+            (
+                f"{item.authorization_id}",
+                f"{item.journal_id or ''}",
+                f"{prefix_icon.get(item.result.value.upper(), '')}",
+                "\n\n".join(textwrap.wrap(item.message or "", width=80)),
+            )
+            for item in details
+        ],
+    )
 
 
 async def _send_notification(
@@ -94,7 +101,7 @@ async def _send_notification(
     await func(
         title=title,
         text=text,
-        details=_build_notification_details(level=level, details=results_counter_details),
+        details=_build_notification_details(details=results_counter_details),
     )
 
 
