@@ -460,7 +460,7 @@ async def test_generate_datasource_charges_empty_daily_expenses(
         organization=organization_data,
         agreement=agreement_data[0],
         linked_datasource_id="34654563456",
-        linked_datasource_type="AWS",
+        linked_datasource_type="aws_cnr",
         datasource_id="1234",
         datasource_name="Test",
         daily_expenses={},
@@ -473,7 +473,8 @@ async def test_generate_datasource_charges_empty_daily_expenses(
         '"item": {"criteria": "item.externalIds.vendor", "value": ""}}, '
         '"period": {"start": "2025-06-01T00:00:00+00:00", "end": "2025-06-30T23:59:59+00:00"}, '
         '"price": {"unitPP": "0.0000", "PPx1": "0.0000"}, '
-        '"quantity": 1, "description": {"value1": "Test", '
+        '"quantity": 1, "description": {"value1": "Amazon Web Services datasource with '
+        'name Test and id 1234", '
         '"value2": "No charges available for this datasource."}, "segment": "COM"}\n'
     )
     assert (
@@ -558,7 +559,7 @@ async def test_generate_datasource_charges_with_daily_expenses_active_trial_term
         organization=organization_data,
         agreement=agreement_data_with_trial[0],
         linked_datasource_id="34654563456",
-        linked_datasource_type="AWS",
+        linked_datasource_type="aws_cnr",
         datasource_id="34654563488",
         datasource_name="Test",
         daily_expenses=daily_expenses,
@@ -572,7 +573,8 @@ async def test_generate_datasource_charges_with_daily_expenses_active_trial_term
         '"item.externalIds.vendor", "value": ""}}, "period": '
         '{"start": "2025-09-01T00:00:00+00:00", "end": "2025-09-30T23:59:59+00:00"}, '
         '"price": {"unitPP": "183.9829", "PPx1": "183.9829"},'
-        ' "quantity": 1, "description": {"value1": "Test", "value2": ""},'
+        ' "quantity": 1, "description": {"value1": "Amazon Web Services datasource with name Test'
+        ' and id 34654563488", "value2": ""},'
         ' "segment": "COM"}\n'
     )
     assert (
@@ -583,7 +585,8 @@ async def test_generate_datasource_charges_with_daily_expenses_active_trial_term
         ' "value": ""}}, "period": {"start": "2025-09-01T00:00:00+00:00", '
         '"end": "2025-09-15T23:59:59+00:00"},'
         ' "price": {"unitPP": "-39.1447", "PPx1": "-39.1447"}, "quantity": 1, '
-        '"description": {"value1": "Test", "value2": "Refund due to trial period '
+        '"description": {"value1": "Amazon Web Services datasource with name Test '
+        'and id 34654563488", "value2": "Refund due to trial period '
         '(from 27 Aug 2025 to 15 Sep 2025)"}, "segment": "COM"}\n'
     )
     assert (
@@ -593,7 +596,8 @@ async def test_generate_datasource_charges_with_daily_expenses_active_trial_term
         ' "item": {"criteria": "item.externalIds.vendor", "value": ""}}, '
         '"period": {"start": "2025-09-16T00:00:00+00:00", "end": "2025-09-28T23:59:59+00:00"},'
         ' "price": {"unitPP": "-137.9294", "PPx1": "-137.9294"}, '
-        '"quantity": 1, "description": {"value1": "Test", "value2": '
+        '"quantity": 1, "description": {"value1": "Amazon Web Services datasource with name Test '
+        'and id 34654563488", "value2": '
         '"Refund due to active entitlement FENT-9763-4488-4624"}, "segment": "COM"}\n'
     )
     assert (
@@ -677,7 +681,7 @@ async def test_generate_datasource_charges_with_daily_expenses_active_trial_and_
         organization=organization_data,
         agreement=agreement_data_with_trial[0],
         linked_datasource_id="34654563456",
-        linked_datasource_type="AWS",
+        linked_datasource_type="aws_cnr",
         datasource_id="34654563488",
         datasource_name="Test",
         daily_expenses=daily_expenses,
@@ -690,7 +694,8 @@ async def test_generate_datasource_charges_with_daily_expenses_active_trial_and_
         '{"criteria": "item.externalIds.vendor", "value": ""}}, "period": {"start": '
         '"2025-09-01T00:00:00+00:00", "end": "2025-09-30T23:59:59+00:00"}, '
         '"price": {"unitPP": "183.9829", "PPx1": '
-        '"183.9829"}, "quantity": 1, "description": {"value1": "Test", "value2": ""}, '
+        '"183.9829"}, "quantity": 1, "description": {"value1": "Amazon Web Services datasource '
+        'with name Test and id 34654563488", "value2": ""}, '
         '"segment": "COM"}\n'
     )
     assert (
@@ -701,7 +706,8 @@ async def test_generate_datasource_charges_with_daily_expenses_active_trial_and_
         '{"criteria": "item.externalIds.vendor", "value": ""}},'
         ' "period": {"start": "2025-09-01T00:00:00+00:00", "end": "2025-09-26T23:59:59+00:00"}, '
         '"price": {"unitPP": "-153.1250", "PPx1": "-153.1250"}, '
-        '"quantity": 1, "description": {"value1": "Test", "value2": '
+        '"quantity": 1, "description": {"value1": "Amazon Web Services datasource with name Test '
+        'and id 34654563488", "value2": '
         '"Refund due to trial period (from 27 Aug 2025 to 26 Sep 2025)"},'
         ' "segment": "COM"}\n'
     )
@@ -751,7 +757,7 @@ async def test_generate_datasource_charges_with_price_in_source_currency_eq_0(
             organization=organization_data,
             agreement=data[0],
             linked_datasource_id="34654563456",
-            linked_datasource_type="AWS",
+            linked_datasource_type="aws_cnr",
             datasource_id="34654563488",
             datasource_name="Test",
             daily_expenses=daily_expenses,
@@ -765,7 +771,8 @@ async def test_generate_datasource_charges_with_price_in_source_currency_eq_0(
         '"item": {"criteria": "item.externalIds.vendor", "value": ""}}, '
         '"period": {"start": "2025-06-01T00:00:00+00:00", "end": "2025-06-30T23:59:59+00:00"}, '
         '"price": {"unitPP": "0.0000", "PPx1": "0.0000"}, "quantity": 1,'
-        ' "description": {"value1": "Test", "value2": ""}, "segment": "COM"}\n'
+        ' "description": {"value1": "Amazon Web Services datasource with name Test '
+        'and id 34654563488", "value2": ""}, "segment": "COM"}\n'
     )
     assert json.loads(response[0]).get("price").get("unitPP") == "0.0000"
 
@@ -793,7 +800,7 @@ async def test_generate_datasource_charges_with_no_entitlement(
             organization=organization_data,
             agreement=agreement_data[0],
             linked_datasource_id="34654563456",
-            linked_datasource_type="AWS",
+            linked_datasource_type="aws_cnr",
             datasource_id="34654563488",
             datasource_name="Test",
             daily_expenses=daily_expenses,
@@ -807,7 +814,8 @@ async def test_generate_datasource_charges_with_no_entitlement(
         '"item": {"criteria": "item.externalIds.vendor", "value": ""}}, '
         '"period": {"start": "2025-06-01T00:00:00+00:00", "end": "2025-06-30T23:59:59+00:00"}, '
         '"price": {"unitPP": "183.9829", "PPx1": "183.9829"}, '
-        '"quantity": 1, "description": {"value1": "Test", "value2": ""}, "segment": "COM"}\n'
+        '"quantity": 1, "description": {"value1": "Amazon Web Services datasource with name Test'
+        ' and id 34654563488", "value2": ""}, "segment": "COM"}\n'
     )
     assert (
         response[1] == '{"externalIds": {"vendor": "34654563456-02", "invoice": "-", "reference": '
@@ -816,7 +824,8 @@ async def test_generate_datasource_charges_with_no_entitlement(
         '{"criteria": "item.externalIds.vendor", "value": ""}}, "period": {"start": '
         '"2025-06-01T00:00:00+00:00", "end": "2025-06-15T23:59:59+00:00"},'
         ' "price": {"unitPP": "-39.1447", "PPx1": '
-        '"-39.1447"}, "quantity": 1, "description": {"value1": "Test", "value2": '
+        '"-39.1447"}, "quantity": 1, "description": {"value1": "Amazon Web Services datasource'
+        ' with name Test and id 34654563488", "value2": '
         '"Refund due to trial period (from 01 Jun 2025 to 15 Jun 2025)"}, '
         '"segment": "COM"}\n'
     )

@@ -51,6 +51,12 @@ VALID_STATUS = [DRAFT, VALIDATED, REVIEW, GENERATING, GENERATED, ACCEPTED, COMPL
 
 logger = logging.getLogger(__name__)
 
+DATASOURCE_TYPE_TO_NAME_MAP = {
+    "aws_cnr": "Amazon Web Services",
+    "azure_cnr": "Microsoft Azure",
+    "gcp_cnr": "Google Cloud Platform",
+}
+
 
 class PrefixAdapter(logging.LoggerAdapter):
     def process(self, msg, kwargs):
@@ -539,6 +545,11 @@ class AuthorizationProcessor:
         This method generates all the charges for the given datasource and
         calculates the refund for the Trials and Entitlements periods.
         """
+        line_description = (
+            f"{DATASOURCE_TYPE_TO_NAME_MAP[linked_datasource_type]} datasource "
+            f"with name {datasource_name} "
+            f"and id {datasource_id}"
+        )
         organization_id = organization["id"]
         if not daily_expenses:  # No charges available for this datasource.
             return [
@@ -549,7 +560,7 @@ class AuthorizationProcessor:
                     self.billing_start_date,
                     self.billing_end_date,
                     Decimal(0),
-                    datasource_name,
+                    line_description,
                     description="No charges available for this datasource.",
                 )
             ]
@@ -571,7 +582,7 @@ class AuthorizationProcessor:
                     start_dt,
                     end_dt,
                     Decimal(0),
-                    datasource_name,
+                    line_description,
                 )
             ]
 
@@ -602,7 +613,7 @@ class AuthorizationProcessor:
                 start_dt,
                 end_dt,
                 price_in_target_currency,
-                datasource_name,
+                line_description,
             )
         ]
         charges.extend(
@@ -710,6 +721,11 @@ class AuthorizationProcessor:
         """
         This function calculates the refund lines for a billing period
         """
+        line_description = (
+            f"{DATASOURCE_TYPE_TO_NAME_MAP[linked_datasource_type]} datasource "
+            f"with name {datasource_name} "
+            f"and id {datasource_id}"
+        )
         daily_expenses = compute_daily_expenses(daily_expenses, self.billing_end_date.day)
         entitlement = (
             await self.ffc_client.fetch_entitlement(
@@ -753,7 +769,7 @@ class AuthorizationProcessor:
                     refund.start_date,
                     refund.end_date,
                     -refund_in_target_currency,
-                    datasource_name,
+                    line_description,
                     refund.description,
                 )
             )
