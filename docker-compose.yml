@@ -5,9 +5,10 @@ services:
       context: .
       dockerfile: prod.Dockerfile
     working_dir: /extension
-    command: swoext run --no-color
-    volumes: 
+    command: [ "swoext", "run", "--no-color" ]
+    volumes:
       - .:/extension
+
     env_file:
       - .env
     ports:
@@ -35,7 +36,7 @@ services:
       context: .
       dockerfile: dev.Dockerfile
     working_dir: /extension
-    command: bash -c "ruff check . && pytest"
+    command: bash -c "uv run ruff check . && uv run pytest"
     volumes:
       - .:/extension
     env_file:
@@ -47,7 +48,7 @@ services:
       context: .
       dockerfile: dev.Dockerfile
     working_dir: /extension
-    command: bash -c "ruff check . --select I --fix && ruff format ."
+    command: bash -c "uv run ruff check . --select I --fix && uv run ruff format ."
     volumes:
       - .:/extension
     env_file:

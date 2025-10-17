@@ -25,7 +25,7 @@ def get_parameter(parameter_phase, source, param_external_id):
     Returns an empty dictionary if the parameter is not found.
     Args:
         parameter_phase (str): The phase of the parameter (ordering, fulfillment).
-        source (str): The source business object from which the parameter
+        source : The source business object from which the parameter
         should be extracted.
         param_external_id (str): The unique external identifier of the parameter.
 
@@ -42,6 +42,15 @@ def get_parameter(parameter_phase, source, param_external_id):
 get_ordering_parameter = functools.partial(get_parameter, PARAM_PHASE_ORDERING)
 
 get_fulfillment_parameter = functools.partial(get_parameter, PARAM_PHASE_FULFILLMENT)
+
+
+def get_ff_date_parameter(parameter_name, source):
+    parameter = get_fulfillment_parameter(source, parameter_name)
+
+    if parameter.get("value", ""):
+        return datetime.strptime(parameter["value"], "%Y-%m-%d").date()
+
+    return None
 
 
 def set_ordering_parameter_error(order, param_external_id, error, required=True):
@@ -69,16 +78,7 @@ def set_ordering_parameter_error(order, param_external_id, error, required=True)
     return updated_order
 
 
-def get_due_date(order):
-    """
-    Returns Due Date parameter value or None
-    """
-    due_date_parameter = get_fulfillment_parameter(order, PARAM_DUE_DATE)
-
-    if due_date_parameter.get("value", ""):
-        return datetime.strptime(due_date_parameter["value"], "%Y-%m-%d").date()
-
-    return None
+get_due_date = functools.partial(get_ff_date_parameter, PARAM_DUE_DATE)
 
 
 def set_due_date(order, due_date):
@@ -111,7 +111,7 @@ def set_is_new_user(order, is_new):
     param_value = ["Yes"] if is_new else None
     param = get_fulfillment_parameter(updated_order, PARAM_IS_NEW_USER)
     if param:
-        # TODO: remove after v5, case when there are processing orders
+        # remove after v5, case when there are processing orders
         # without the parameter is_new_user
         # parameter was introduced after v4 release
         param["value"] = param_value
@@ -151,3 +151,11 @@ def reset_ordering_parameters_error(order):
         param["error"] = None
 
     return updated_order
+
+
+get_trial_start_date = functools.partial(get_ff_date_parameter, PARAM_TRIAL_START_DATE)
+get_trial_end_date = functools.partial(get_ff_date_parameter, PARAM_TRIAL_END_DATE)
+
+
+def get_billed_percentage(source):
+    return get_fulfillment_parameter(source, PARAM_BILLED_PERCENTAGE)

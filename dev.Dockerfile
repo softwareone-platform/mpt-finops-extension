@@ -1,12 +1,32 @@
-FROM python:3.12.2-bookworm
-ENV PYTHONUNBUFFERED=1 POETRY_VERSION=1.7.0
+FROM python:3.12.2-slim-bookworm
 
-RUN pip3 install poetry==$POETRY_VERSION
+# Install curl and certificates for uv installer
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates curl && \
+    rm -rf /var/lib/apt/lists/*
+
+# Install uv
+ADD https://astral.sh/uv/install.sh /uv-installer.sh
+RUN sh /uv-installer.sh && rm /uv-installer.sh
+
+ENV PYTHONUNBUFFERED=1 \
+    UV_SYSTEM_PYTHON=1 \
+    UV_LINK_MODE=copy \
+    VIRTUAL_ENV=/extension/.venv \
+    PATH="/extension/.venv/bin:/root/.local/bin:$PATH"
+
 
 WORKDIR /extension
+COPY pyproject.toml uv.lock ./
 
-ADD . /extension
+# Install all dependencies (including dev tools for testing)
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --all-groups --no-install-project
 
-RUN poetry update && poetry install --with dev,runtime,sdk
+COPY . .
+
+# Re-run sync to install project itself
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv sync --frozen --all-groups
 
 CMD ["swoext", "run", "--no-color"]
