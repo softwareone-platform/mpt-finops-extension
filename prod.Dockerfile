@@ -19,13 +19,13 @@ WORKDIR /extension
 COPY pyproject.toml uv.lock ./
 
 # Install all dependencies (including dev tools for testing)
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --all-groups --no-install-project
+# Removed BuildKit cache mount
+RUN uv sync --frozen --all-groups --no-install-project
 
 COPY . .
 
 # Re-run sync to install project itself
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --all-groups
+# Removed BuildKit cache mount
+RUN uv sync --frozen --all-groups
 
 CMD ["swoext", "run", "--no-color"]
