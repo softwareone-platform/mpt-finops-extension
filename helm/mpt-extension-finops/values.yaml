@@ -11,7 +11,7 @@ global:
   EmailNotificationsEnabled: default
   AwsSesCredentials: ZGVmYXVsdA==
   AwsSesRegion: default
-  FFCOperationsToken: default
+  FFCOperationsToken: ZGVmYXVsdA==
   FFCSub: default
   FFCOperationsBaseUrl: default
   MpNotifyCategories: '\{\"ORDERS\": \"NTC-0000-0006\"\}'
