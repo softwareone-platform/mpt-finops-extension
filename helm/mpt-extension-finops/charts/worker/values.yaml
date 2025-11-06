@@ -6,7 +6,7 @@ owner: turing
 git:
   repository: mpt-extension-finops
 image:
-  repository: /mpt-extensions-finops
+  repository: /mpt-extension-finops
   pullPolicy: IfNotPresent
 
 nameOverride: ""
