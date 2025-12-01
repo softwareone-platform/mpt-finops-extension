@@ -850,8 +850,9 @@ class AuthorizationProcessor:
                     "reference": datasource_id,
                 },
                 "search": {
-                    "subscription": {
-                        "criteria": "subscription.externalIds.vendor",
+                    "source": {
+                        "type": "Subscription",
+                        "criteria": "externalIds.vendor",
                         "value": organization_id,
                     },
                     "item": {

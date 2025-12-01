@@ -466,21 +466,27 @@ async def test_generate_datasource_charges_empty_daily_expenses(
         daily_expenses={},
     )
     assert isinstance(response[0], str)
-    assert (
-        response[0] == '{"externalIds": {"vendor": "34654563456-01", "invoice": "-", '
-        '"reference": "1234"}, "search": {"subscription": '
-        '{"criteria": "subscription.externalIds.vendor", "value": "FORG-4801-6958-2949"}, '
-        '"item": {"criteria": "item.externalIds.vendor", "value": ""}}, '
-        '"period": {"start": "2025-06-01T00:00:00+00:00", "end": "2025-06-30T23:59:59+00:00"}, '
-        '"price": {"unitPP": "0.0000", "PPx1": "0.0000"}, '
-        '"quantity": 1, "description": {"value1": "Amazon Web Services datasource with '
-        'name Test and id 1234", '
-        '"value2": "No charges available for this datasource."}, "segment": "COM"}\n'
-    )
-    assert (
-        json.loads(response[0]).get("description").get("value2")
-        == "No charges available for this datasource."
-    )
+    line = json.loads(response[0])
+    assert line == {
+        "externalIds": {"vendor": "34654563456-01", "invoice": "-", "reference": "1234"},
+        "search": {
+            "source": {
+                "type": "Subscription",
+                "criteria": "externalIds.vendor",
+                "value": "FORG-4801-6958-2949",
+            },
+            "item": {"criteria": "item.externalIds.vendor", "value": ""},
+        },
+        "period": {"start": "2025-06-01T00:00:00+00:00", "end": "2025-06-30T23:59:59+00:00"},
+        "price": {"unitPP": "0.0000", "PPx1": "0.0000"},
+        "quantity": 1,
+        "description": {
+            "value1": "Amazon Web Services datasource with name Test and id 1234",
+            "value2": "No charges available for this datasource.",
+        },
+        "segment": "COM",
+    }
+    assert line.get("description").get("value2") == "No charges available for this datasource."
 
 
 @pytest.mark.parametrize("billing_process_instance", [{"month": 9}], indirect=True)
@@ -565,47 +571,71 @@ async def test_generate_datasource_charges_with_daily_expenses_active_trial_term
         daily_expenses=daily_expenses,
     )
     assert isinstance(response[0], str)
-    assert (
-        response[0] == '{"externalIds": {"vendor": "34654563456-01", "invoice": "-", '
-        '"reference": "34654563488"}, "search": {"subscription": '
-        '{"criteria": "subscription.externalIds.vendor", "value": '
-        '"FORG-4801-6958-2949"}, "item": {"criteria": '
-        '"item.externalIds.vendor", "value": ""}}, "period": '
-        '{"start": "2025-09-01T00:00:00+00:00", "end": "2025-09-30T23:59:59+00:00"}, '
-        '"price": {"unitPP": "183.9829", "PPx1": "183.9829"},'
-        ' "quantity": 1, "description": {"value1": "Amazon Web Services datasource with name Test'
-        ' and id 34654563488", "value2": ""},'
-        ' "segment": "COM"}\n'
-    )
-    assert (
-        response[1] == '{"externalIds": {"vendor": "34654563456-02", "invoice": "-", '
-        '"reference": "34654563488"}, '
-        '"search": {"subscription": {"criteria": "subscription.externalIds.vendor",'
-        ' "value": "FORG-4801-6958-2949"}, "item": {"criteria": "item.externalIds.vendor",'
-        ' "value": ""}}, "period": {"start": "2025-09-01T00:00:00+00:00", '
-        '"end": "2025-09-15T23:59:59+00:00"},'
-        ' "price": {"unitPP": "-39.1447", "PPx1": "-39.1447"}, "quantity": 1, '
-        '"description": {"value1": "Amazon Web Services datasource with name Test '
-        'and id 34654563488", "value2": "Refund due to trial period '
-        '(from 27 Aug 2025 to 15 Sep 2025)"}, "segment": "COM"}\n'
-    )
-    assert (
-        response[2] == '{"externalIds": {"vendor": "34654563456-03", "invoice": "-", '
-        '"reference": "34654563488"}, "search": {"subscription": '
-        '{"criteria": "subscription.externalIds.vendor", "value": "FORG-4801-6958-2949"},'
-        ' "item": {"criteria": "item.externalIds.vendor", "value": ""}}, '
-        '"period": {"start": "2025-09-16T00:00:00+00:00", "end": "2025-09-28T23:59:59+00:00"},'
-        ' "price": {"unitPP": "-137.9294", "PPx1": "-137.9294"}, '
-        '"quantity": 1, "description": {"value1": "Amazon Web Services datasource with name Test '
-        'and id 34654563488", "value2": '
-        '"Refund due to active entitlement FENT-9763-4488-4624"}, "segment": "COM"}\n'
-    )
+    lines = [json.loads(r) for r in response]
+    assert lines[0] == {
+        "externalIds": {"vendor": "34654563456-01", "invoice": "-", "reference": "34654563488"},
+        "search": {
+            "source": {
+                "type": "Subscription",
+                "criteria": "externalIds.vendor",
+                "value": "FORG-4801-6958-2949",
+            },
+            "item": {"criteria": "item.externalIds.vendor", "value": ""},
+        },
+        "period": {"start": "2025-09-01T00:00:00+00:00", "end": "2025-09-30T23:59:59+00:00"},
+        "price": {"unitPP": "183.9829", "PPx1": "183.9829"},
+        "quantity": 1,
+        "description": {
+            "value1": "Amazon Web Services datasource with name Test and id 34654563488",
+            "value2": "",
+        },
+        "segment": "COM",
+    }
+    assert lines[1] == {
+        "externalIds": {"vendor": "34654563456-02", "invoice": "-", "reference": "34654563488"},
+        "search": {
+            "source": {
+                "type": "Subscription",
+                "criteria": "externalIds.vendor",
+                "value": "FORG-4801-6958-2949",
+            },
+            "item": {"criteria": "item.externalIds.vendor", "value": ""},
+        },
+        "period": {"start": "2025-09-01T00:00:00+00:00", "end": "2025-09-15T23:59:59+00:00"},
+        "price": {"unitPP": "-39.1447", "PPx1": "-39.1447"},
+        "quantity": 1,
+        "description": {
+            "value1": "Amazon Web Services datasource with name Test and id 34654563488",
+            "value2": "Refund due to trial period (from 27 Aug 2025 to 15 Sep 2025)",
+        },
+        "segment": "COM",
+    }
+    assert lines[2] == {
+        "externalIds": {"vendor": "34654563456-03", "invoice": "-", "reference": "34654563488"},
+        "search": {
+            "source": {
+                "type": "Subscription",
+                "criteria": "externalIds.vendor",
+                "value": "FORG-4801-6958-2949",
+            },
+            "item": {"criteria": "item.externalIds.vendor", "value": ""},
+        },
+        "period": {"start": "2025-09-16T00:00:00+00:00", "end": "2025-09-28T23:59:59+00:00"},
+        "price": {"unitPP": "-137.9294", "PPx1": "-137.9294"},
+        "quantity": 1,
+        "description": {
+            "value1": "Amazon Web Services datasource with name Test and id 34654563488",
+            "value2": "Refund due to active entitlement FENT-9763-4488-4624",
+        },
+        "segment": "COM",
+    }
     assert (
         "[AUT-5305-9928] : organization_id='FORG-4801-6958-2949'"
         " linked_datasource_id='34654563456' datasource_name='Test' - "
         "amount=Decimal('5326.0458') billing_percentage=Decimal('4') "
         "price_in_source_currency=Decimal('213.0418') "
         "exchange_rate=Decimal('0.8636') price_in_target_currency=Decimal('183.98289848')\n"
+        in caplog.text
     )
 
 
@@ -687,30 +717,45 @@ async def test_generate_datasource_charges_with_daily_expenses_active_trial_and_
         daily_expenses=daily_expenses,
     )
     assert isinstance(response[0], str)
-    assert (
-        response[0] == '{"externalIds": {"vendor": "34654563456-01", "invoice": "-", "reference": '
-        '"34654563488"}, "search": {"subscription": {"criteria": '
-        '"subscription.externalIds.vendor", "value": "FORG-4801-6958-2949"}, "item": '
-        '{"criteria": "item.externalIds.vendor", "value": ""}}, "period": {"start": '
-        '"2025-09-01T00:00:00+00:00", "end": "2025-09-30T23:59:59+00:00"}, '
-        '"price": {"unitPP": "183.9829", "PPx1": '
-        '"183.9829"}, "quantity": 1, "description": {"value1": "Amazon Web Services datasource '
-        'with name Test and id 34654563488", "value2": ""}, '
-        '"segment": "COM"}\n'
-    )
-    assert (
-        response[1] == '{"externalIds": {"vendor": "34654563456-02", "invoice": "-",'
-        ' "reference": "34654563488"}, "search": {"subscription": '
-        '{"criteria": "subscription.externalIds.vendor", '
-        '"value": "FORG-4801-6958-2949"}, "item": '
-        '{"criteria": "item.externalIds.vendor", "value": ""}},'
-        ' "period": {"start": "2025-09-01T00:00:00+00:00", "end": "2025-09-26T23:59:59+00:00"}, '
-        '"price": {"unitPP": "-153.1250", "PPx1": "-153.1250"}, '
-        '"quantity": 1, "description": {"value1": "Amazon Web Services datasource with name Test '
-        'and id 34654563488", "value2": '
-        '"Refund due to trial period (from 27 Aug 2025 to 26 Sep 2025)"},'
-        ' "segment": "COM"}\n'
-    )
+    lines = [json.loads(r) for r in response]
+    assert lines[0] == {
+        "externalIds": {"vendor": "34654563456-01", "invoice": "-", "reference": "34654563488"},
+        "search": {
+            "source": {
+                "type": "Subscription",
+                "criteria": "externalIds.vendor",
+                "value": "FORG-4801-6958-2949",
+            },
+            "item": {"criteria": "item.externalIds.vendor", "value": ""},
+        },
+        "period": {"start": "2025-09-01T00:00:00+00:00", "end": "2025-09-30T23:59:59+00:00"},
+        "price": {"unitPP": "183.9829", "PPx1": "183.9829"},
+        "quantity": 1,
+        "description": {
+            "value1": "Amazon Web Services datasource with name Test and id 34654563488",
+            "value2": "",
+        },
+        "segment": "COM",
+    }
+    assert lines[1] == {
+        "externalIds": {"vendor": "34654563456-02", "invoice": "-", "reference": "34654563488"},
+        "search": {
+            "source": {
+                "type": "Subscription",
+                "criteria": "externalIds.vendor",
+                "value": "FORG-4801-6958-2949",
+            },
+            "item": {"criteria": "item.externalIds.vendor", "value": ""},
+        },
+        "period": {"start": "2025-09-01T00:00:00+00:00", "end": "2025-09-26T23:59:59+00:00"},
+        "price": {"unitPP": "-153.1250", "PPx1": "-153.1250"},
+        "quantity": 1,
+        "description": {
+            "value1": "Amazon Web Services datasource with name Test and id 34654563488",
+            "value2": "Refund due to trial period (from 27 Aug 2025 to 26 Sep 2025)",
+        },
+        "segment": "COM",
+    }
     assert (
         "[AUT-5305-9928] : organization_id='FORG-4801-6958-2949' "
         "linked_datasource_id='34654563456' datasource_name='Test' - "
@@ -763,18 +808,27 @@ async def test_generate_datasource_charges_with_price_in_source_currency_eq_0(
             daily_expenses=daily_expenses,
         )
     assert isinstance(response[0], str)
-    assert (
-        response[0] == '{"externalIds": {"vendor": "34654563456-01", "invoice": "-", '
-        '"reference": "34654563488"}, '
-        '"search": {"subscription": {"criteria": "subscription.externalIds.vendor", '
-        '"value": "FORG-4801-6958-2949"}, '
-        '"item": {"criteria": "item.externalIds.vendor", "value": ""}}, '
-        '"period": {"start": "2025-06-01T00:00:00+00:00", "end": "2025-06-30T23:59:59+00:00"}, '
-        '"price": {"unitPP": "0.0000", "PPx1": "0.0000"}, "quantity": 1,'
-        ' "description": {"value1": "Amazon Web Services datasource with name Test '
-        'and id 34654563488", "value2": ""}, "segment": "COM"}\n'
-    )
-    assert json.loads(response[0]).get("price").get("unitPP") == "0.0000"
+    line = json.loads(response[0])
+    assert line == {
+        "externalIds": {"vendor": "34654563456-01", "invoice": "-", "reference": "34654563488"},
+        "search": {
+            "source": {
+                "type": "Subscription",
+                "criteria": "externalIds.vendor",
+                "value": "FORG-4801-6958-2949",
+            },
+            "item": {"criteria": "item.externalIds.vendor", "value": ""},
+        },
+        "period": {"start": "2025-06-01T00:00:00+00:00", "end": "2025-06-30T23:59:59+00:00"},
+        "price": {"unitPP": "0.0000", "PPx1": "0.0000"},
+        "quantity": 1,
+        "description": {
+            "value1": "Amazon Web Services datasource with name Test and id 34654563488",
+            "value2": "",
+        },
+        "segment": "COM",
+    }
+    assert line.get("price").get("unitPP") == "0.0000"
 
 
 @pytest.mark.asyncio()
@@ -806,29 +860,45 @@ async def test_generate_datasource_charges_with_no_entitlement(
             daily_expenses=daily_expenses,
         )
     assert isinstance(response[0], str)
-    assert (
-        response[0] == '{"externalIds": {"vendor": "34654563456-01", "invoice": "-", '
-        '"reference": "34654563488"}, '
-        '"search": {"subscription": {"criteria": "subscription.externalIds.vendor", '
-        '"value": "FORG-4801-6958-2949"}, '
-        '"item": {"criteria": "item.externalIds.vendor", "value": ""}}, '
-        '"period": {"start": "2025-06-01T00:00:00+00:00", "end": "2025-06-30T23:59:59+00:00"}, '
-        '"price": {"unitPP": "183.9829", "PPx1": "183.9829"}, '
-        '"quantity": 1, "description": {"value1": "Amazon Web Services datasource with name Test'
-        ' and id 34654563488", "value2": ""}, "segment": "COM"}\n'
-    )
-    assert (
-        response[1] == '{"externalIds": {"vendor": "34654563456-02", "invoice": "-", "reference": '
-        '"34654563488"}, "search": {"subscription": {"criteria": '
-        '"subscription.externalIds.vendor", "value": "FORG-4801-6958-2949"}, "item": '
-        '{"criteria": "item.externalIds.vendor", "value": ""}}, "period": {"start": '
-        '"2025-06-01T00:00:00+00:00", "end": "2025-06-15T23:59:59+00:00"},'
-        ' "price": {"unitPP": "-39.1447", "PPx1": '
-        '"-39.1447"}, "quantity": 1, "description": {"value1": "Amazon Web Services datasource'
-        ' with name Test and id 34654563488", "value2": '
-        '"Refund due to trial period (from 01 Jun 2025 to 15 Jun 2025)"}, '
-        '"segment": "COM"}\n'
-    )
+    lines = [json.loads(r) for r in response]
+    assert lines[0] == {
+        "externalIds": {"vendor": "34654563456-01", "invoice": "-", "reference": "34654563488"},
+        "search": {
+            "source": {
+                "type": "Subscription",
+                "criteria": "externalIds.vendor",
+                "value": "FORG-4801-6958-2949",
+            },
+            "item": {"criteria": "item.externalIds.vendor", "value": ""},
+        },
+        "period": {"start": "2025-06-01T00:00:00+00:00", "end": "2025-06-30T23:59:59+00:00"},
+        "price": {"unitPP": "183.9829", "PPx1": "183.9829"},
+        "quantity": 1,
+        "description": {
+            "value1": "Amazon Web Services datasource with name Test and id 34654563488",
+            "value2": "",
+        },
+        "segment": "COM",
+    }
+    assert lines[1] == {
+        "externalIds": {"vendor": "34654563456-02", "invoice": "-", "reference": "34654563488"},
+        "search": {
+            "source": {
+                "type": "Subscription",
+                "criteria": "externalIds.vendor",
+                "value": "FORG-4801-6958-2949",
+            },
+            "item": {"criteria": "item.externalIds.vendor", "value": ""},
+        },
+        "period": {"start": "2025-06-01T00:00:00+00:00", "end": "2025-06-15T23:59:59+00:00"},
+        "price": {"unitPP": "-39.1447", "PPx1": "-39.1447"},
+        "quantity": 1,
+        "description": {
+            "value1": "Amazon Web Services datasource with name Test and id 34654563488",
+            "value2": "Refund due to trial period (from 01 Jun 2025 to 15 Jun 2025)",
+        },
+        "segment": "COM",
+    }
 
 
 # ------------------------------------------------------------------------------------
