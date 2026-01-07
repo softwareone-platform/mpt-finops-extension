@@ -1441,41 +1441,115 @@ def test_get_trial_days_full_month(billing_process_instance):
 # # -----------------------------------------------------------------------------------
 # # - Test command
 @pytest.mark.parametrize(
-    "opts",
+    ("opts", "not_allowed", "error_message"),
     [
-        {
-            "year": 2025,
-            "month": 8,
-            "dry_run": True,
-            "cutoff_day": 1,
-        },
-        {
-            "year": 2024,
-            "month": 12,
-            "dry_run": False,
-            "authorization": "AUTH123",
-            "cutoff_day": 1,
-        },
+        (
+            {"year": 2025, "month": 8, "dry_run": True, "cutoff_day": 1},
+            False,
+            None,
+        ),
+        (
+            {
+                "year": 2024,
+                "month": 12,
+                "dry_run": False,
+                "authorization": "AUTH123",
+                "cutoff_day": 1,
+            },
+            False,
+            None,
+        ),
+        (
+            {
+                "year": date.today().year + 1,
+                "month": 1,
+                "dry_run": True,
+                "cutoff_day": 5,
+            },
+            True,
+            "The billing period cannot be in the future",
+        ),
+        (
+            {
+                "dry_run": True,
+            },
+            False,
+            None,
+        ),
+        (
+            {
+                "year": date.today().year,
+                "dry_run": True,
+                "cutoff_day": 5,
+            },
+            True,
+            "The billing period cannot be in the future",
+        ),
+        (
+            {
+                "month": max(1, date.today().month - 1),
+                "dry_run": True,
+                "cutoff_day": 5,
+            },
+            False,
+            None,
+        ),
+        (
+            {
+                "month": 20,
+                "dry_run": True,
+            },
+            True,
+            "The billing month must be between 1 and 12 (inclusive)",
+        ),
+        (
+            {
+                "cutoff_day": 100,
+                "dry_run": True,
+            },
+            True,
+            "The cutoff-day must be between 1 and 28 (inclusive)",
+        ),
     ],
 )
-def test_handle_run_command(mocker, opts):
-    fake_coro_obj = object()
-    process_billing_mock = Mock(return_value=fake_coro_obj)
-    asyncio_run_mock = Mock()
+def test_process_billing_command(mocker, opts, not_allowed, error_message, capsys):
+    fake_coro = object()
+    mock_process_billing = Mock(return_value=fake_coro)
+    mock_asyncio_run = Mock()
 
-    mocker.patch("ffc.management.commands.process_billing.process_billing", process_billing_mock)
-    mocker.patch("ffc.management.commands.process_billing.asyncio.run", asyncio_run_mock)
-    call_command("process_billing", **opts)
-    expected_auth = opts.get("authorization")
-    process_billing_mock.assert_called_once_with(
-        opts["year"],
-        opts["month"],
-        authorization_id=expected_auth,
-        dry_run=opts["dry_run"],
-        cutoff_day=opts["cutoff_day"],
+    mocker.patch(
+        "ffc.management.commands.process_billing.process_billing",
+        mock_process_billing,
+    )
+    mocker.patch(
+        "ffc.management.commands.process_billing.asyncio.run",
+        mock_asyncio_run,
     )
 
-    asyncio_run_mock.assert_called_once_with(fake_coro_obj)
+    if not_allowed:
+        with pytest.raises(SystemExit) as excinfo:
+            call_command("process_billing", **opts)
+
+        assert excinfo.value.code == 1
+
+        captured = capsys.readouterr()
+        assert error_message in captured.err
+
+        mock_process_billing.assert_not_called()
+        mock_asyncio_run.assert_not_called()
+    else:
+        call_command("process_billing", **opts)
+        if "year" in opts and "month" in opts:
+            mock_process_billing.assert_called_once_with(
+                opts["year"],
+                opts["month"],
+                authorization_id=opts.get("authorization"),
+                dry_run=opts["dry_run"],
+                cutoff_day=opts["cutoff_day"],
+            )
+        else:
+            mock_process_billing.assert_called_once()
+        mock_asyncio_run.assert_called_once_with(fake_coro)
 
 
 # # -----------------------------------------------------------------------------------

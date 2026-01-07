@@ -78,7 +78,6 @@ async def process_billing(
     """
     product_id = settings.MPT_PRODUCTS_IDS[0]
     mpt_client = MPTAsyncClient()
-
     if authorization_id:
         authorization = await mpt_client.fetch_authorization(authorization_id)
         processor = AuthorizationProcessor(year, month, authorization, dry_run)
