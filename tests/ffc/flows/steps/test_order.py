@@ -32,9 +32,6 @@ def test_complete_order(
         "ffc.flows.steps.order.get_product_template_or_default",
         return_value=template,
     )
-    mocked_send_mpt_notification = mocker.patch(
-        "ffc.flows.steps.order.send_mpt_notification",
-    )
 
     ctx = OrderContext(order=processing_purchase_order)
     step = CompleteOrder("Complete Template")
@@ -48,9 +45,6 @@ def test_complete_order(
         processing_purchase_order["id"],
         template,
         parameters=processing_purchase_order["parameters"],
-    )
-    mocked_send_mpt_notification.assert_called_once_with(
-        mpt_client, OrderContext.from_order(completed_purchase_order)
     )
 
 
@@ -127,9 +121,6 @@ def test_query_if_invalid(
         "ffc.flows.steps.order.get_product_template_or_default",
         return_value=template,
     )
-    mocked_send_mpt_notification = mocker.patch(
-        "ffc.flows.steps.order.send_mpt_notification",
-    )
 
     ctx = OrderContext(
         order=processing_purchase_order,
@@ -145,7 +136,6 @@ def test_query_if_invalid(
         processing_purchase_order["id"],
         template=template,
     )
-    mocked_send_mpt_notification.assert_called_once_with(mpt_client, ctx)
 
 
 def test_do_not_query_if_valid(

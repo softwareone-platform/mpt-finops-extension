@@ -2,8 +2,6 @@ from copy import deepcopy
 
 from mpt_extension_sdk.mpt_http.mpt import fail_order
 
-from ffc.flows.order import OrderContext
-from ffc.notifications import send_mpt_notification
 from ffc.parameters import set_due_date
 
 
@@ -23,7 +21,6 @@ def switch_order_to_failed(client, order, error):
     agreement = order["agreement"]
     order = fail_order(client, order["id"], error, parameters=order["parameters"])
     order["agreement"] = agreement
-    send_mpt_notification(client, OrderContext.from_order(order))
     return order
 
 

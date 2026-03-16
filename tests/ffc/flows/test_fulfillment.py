@@ -28,9 +28,7 @@ def test_purchase_order(
         "ffc.flows.steps.order.complete_order",
         return_value=processing_purchase_order,
     )
-    mocked_send_mpt_notification_complete_order = mocker.patch(
-        "ffc.flows.steps.order.send_mpt_notification",
-    )
+
     mocked_update_order_finops = mocker.patch("ffc.flows.steps.finops.update_order")
     mocked_update_order = mocker.patch("ffc.flows.steps.order.update_order")
     mocked_update_agreement = mocker.patch("ffc.flows.steps.order.update_agreement")
@@ -65,7 +63,6 @@ def test_purchase_order(
             "lines": [{"id": "ALI-2119-4550-8674-5962-0001"}],
         },
     )
-    mocked_send_mpt_notification_complete_order.assert_called_once()
     mocked_complete_order.assert_called_once_with(
         mpt_client,
         processing_purchase_order["id"],
@@ -170,9 +167,7 @@ def test_terminate_order(
         "ffc.flows.steps.order.complete_order",
         return_value=processing_termination_order,
     )
-    mocked_send_mpt_notification_complete_order = mocker.patch(
-        "ffc.flows.steps.order.send_mpt_notification",
-    )
+
     mocked_update_order = mocker.patch("ffc.flows.steps.order.update_order")
 
     mocked_ffc_client = mocker.MagicMock()
@@ -187,7 +182,6 @@ def test_terminate_order(
         template=template,
     )
 
-    mocked_send_mpt_notification_complete_order.assert_called_once()
     mocked_complete_order.assert_called_once_with(
         mpt_client,
         processing_termination_order["id"],

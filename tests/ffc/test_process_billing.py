@@ -1461,8 +1461,18 @@ def test_get_trial_days_full_month(billing_process_instance):
         ),
         (
             {
-                "year": date.today().year + 1,
+                "year": 2027,
                 "month": 1,
+                "dry_run": True,
+                "cutoff_day": 5,
+            },
+            True,
+            "The billing period cannot be in the future",
+        ),
+        (
+            {
+                "year": 2026,
+                "month": 4,
                 "dry_run": True,
                 "cutoff_day": 5,
             },
@@ -1478,16 +1488,16 @@ def test_get_trial_days_full_month(billing_process_instance):
         ),
         (
             {
-                "year": date.today().year,
+                "year": 2026,
                 "dry_run": True,
                 "cutoff_day": 5,
             },
-            True,
-            "The billing period cannot be in the future",
+            False,
+            None,
         ),
         (
             {
-                "month": max(1, date.today().month - 1),
+                "month": 2,
                 "dry_run": True,
                 "cutoff_day": 5,
             },
@@ -1512,6 +1522,7 @@ def test_get_trial_days_full_month(billing_process_instance):
         ),
     ],
 )
+@freeze_time("2026-03-16")
 def test_process_billing_command(mocker, opts, not_allowed, error_message, capsys):
     fake_coro = object()
     mock_process_billing = Mock(return_value=fake_coro)

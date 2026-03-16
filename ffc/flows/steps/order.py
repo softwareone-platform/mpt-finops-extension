@@ -91,7 +91,6 @@ class CompleteOrder(Step):
             parameters=context.order["parameters"],
         )
         context.order["agreement"] = agreement
-        send_mpt_notification(client, context)
         logger.info(f"{context}: order has been completed successfully")
         next_step(client, context)
 
@@ -160,7 +159,6 @@ class QueryIfInvalid(Step):
             logger.info(
                 f"{context}: ordering parameters are invalid, move to querying",
             )
-            send_mpt_notification(client, context)
             return
 
         next_step(client, context)
@@ -219,7 +217,7 @@ class SetupFulfillmentParameters(Step):
 class ResetOrderErrors(Step):
     """
     Reset order errors and parameter errors. Is used before processing
-    to not to show errors during procesing or after validation is succeseed
+    to not show errors during processing or after validation is succeeded
     """
 
     def __call__(self, client, context, next_step):
