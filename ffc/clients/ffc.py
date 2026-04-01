@@ -73,7 +73,8 @@ class FFCAsyncClient(BaseAsyncAPIClient, PaginationSupportMixin):
             "and("
             f"eq(organization.id,{organization_id}),"
             f"eq(year,{year}),"
-            f"eq(month,{month})"
+            f"eq(month,{month}),"
+            "eq(events.deleted.at,null())"
             ")"
             "&order_by(linked_datasource_id)"
         )
