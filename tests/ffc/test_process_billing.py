@@ -126,7 +126,7 @@ async def test_is_journal_validated_fail_and_retry(
         journal_id=existing_journal_file_response["data"][0]["id"]
     )
     assert result is False
-    assert billing_process_instance.mpt_client.get_journal_by_id.call_count == 5
+    assert billing_process_instance.mpt_client.get_journal_by_id.call_count == 6
 
 
 # ----------------------------------------------------------------------------------

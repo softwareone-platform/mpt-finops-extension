@@ -629,8 +629,8 @@ class AuthorizationProcessor:
         )
         return charges
 
-    async def is_journal_status_validated(self, journal_id, max_attempts=5) -> bool:
-        backoff_times = [0.15, 0.45, 1.05, 2.25, 4.65]
+    async def is_journal_status_validated(self, journal_id, max_attempts=6) -> bool:
+        backoff_times = [0.15, 0.45, 1.05, 2.25, 4.65, 7.0]
 
         for attempt in range(min(max_attempts, len(backoff_times))):
             journal = await self.mpt_client.get_journal_by_id(journal_id)
