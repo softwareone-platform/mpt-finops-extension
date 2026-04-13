@@ -24,7 +24,6 @@ from ffc.flows.order import (
     set_template,
 )
 from ffc.flows.steps.utils import reset_order_error, switch_order_to_failed
-from ffc.notifications import send_mpt_notification
 from ffc.parameters import (
     PARAM_ADMIN_CONTACT,
     PARAM_BILLED_PERCENTAGE,
@@ -33,7 +32,6 @@ from ffc.parameters import (
     PARAM_ORGANIZATION_NAME,
     PARAM_TRIAL_END_DATE,
     PARAM_TRIAL_START_DATE,
-    get_due_date,
     get_fulfillment_parameter,
     get_ordering_parameter,
     reset_ordering_parameters_error,
@@ -250,9 +248,6 @@ class StartOrderProcessing(Step):
                 f"{context}: processing template set to {self.template_name} ({template['id']})"
             )
         logger.info(f"{context}: processing template is ok, continue")
-
-        if not get_due_date(context.order):
-            send_mpt_notification(client, context)
 
         next_step(client, context)
 

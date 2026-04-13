@@ -155,9 +155,6 @@ def test_do_not_query_if_valid(
         "ffc.flows.steps.order.get_product_template_or_default",
         return_value=template,
     )
-    mocked_send_mpt_notification = mocker.patch(
-        "ffc.flows.steps.order.send_mpt_notification",
-    )
 
     ctx = OrderContext(
         order=processing_purchase_order,
@@ -169,7 +166,6 @@ def test_do_not_query_if_valid(
 
     mocked_next_step.assert_called_once()
     mocked_query_order.assert_not_called()
-    mocked_send_mpt_notification.assert_not_called()
 
 
 def test_setup_agreement_external_id(
@@ -225,7 +221,6 @@ def test_start_order_processing_same_template(
         return_value=template,
     )
     mocked_update_order = mocker.patch("ffc.flows.steps.order.update_order")
-    mocked_send_mpt_notification = mocker.patch("ffc.flows.steps.order.send_mpt_notification")
     ctx = OrderContext(order=processing_purchase_order)
     step = StartOrderProcessing("Purchase")
 
@@ -233,7 +228,6 @@ def test_start_order_processing_same_template(
 
     mocked_next_step.assert_called_once()
     mocked_update_order.assert_not_called()
-    mocked_send_mpt_notification.assert_not_called()
 
 
 def test_start_order_processing(
@@ -248,7 +242,6 @@ def test_start_order_processing(
         return_value=template,
     )
     mocked_update_order = mocker.patch("ffc.flows.steps.order.update_order")
-    mocked_send_mpt_notification = mocker.patch("ffc.flows.steps.order.send_mpt_notification")
     ctx = OrderContext(order=processing_purchase_order)
     step = StartOrderProcessing("Purchase")
 
@@ -260,7 +253,6 @@ def test_start_order_processing(
         processing_purchase_order["id"],
         template=template,
     )
-    mocked_send_mpt_notification.assert_not_called()
 
 
 def test_start_order_processing_send_notification(
@@ -276,7 +268,6 @@ def test_start_order_processing_send_notification(
         return_value=template,
     )
     mocked_update_order = mocker.patch("ffc.flows.steps.order.update_order")
-    mocked_send_mpt_notification = mocker.patch("ffc.flows.steps.order.send_mpt_notification")
     ctx = OrderContext(order=first_attempt_processing_purchase_order)
     step = StartOrderProcessing("Purchase")
 
@@ -284,10 +275,6 @@ def test_start_order_processing_send_notification(
 
     mocked_next_step.assert_called_once()
     mocked_update_order.assert_not_called()
-    mocked_send_mpt_notification.assert_called_once_with(
-        mpt_client,
-        OrderContext.from_order(first_attempt_processing_purchase_order),
-    )
 
 
 def test_fail_order(

@@ -10,17 +10,16 @@ from ffc.parameters import get_due_date, set_due_date
 
 @freeze_time("2025-02-01")
 def test_setup_due_date(
-    mocker,
-    settings,
-    mocked_next_step,
-    mpt_client,
-    first_attempt_processing_purchase_order,
+        mocker,
+        settings,
+        mocked_next_step,
+        mpt_client,
+        first_attempt_processing_purchase_order,
 ):
     ctx = OrderContext(order=first_attempt_processing_purchase_order)
     step = SetupDueDate()
     settings.EXTENSION_CONFIG["DUE_DATE_DAYS"] = 10
 
-    mocked_send_mpt_notification = mocker.patch("ffc.flows.steps.due_date.send_mpt_notification")
     mocked_update_order = mocker.patch("ffc.flows.steps.due_date.update_order")
 
     step(mpt_client, ctx, mocked_next_step)
@@ -30,9 +29,6 @@ def test_setup_due_date(
     order_with_due_date = set_due_date(first_attempt_processing_purchase_order, next_due_date)
 
     assert get_due_date(ctx.order) == next_due_date
-    mocked_send_mpt_notification.assert_called_once_with(
-        mpt_client, OrderContext.from_order(order_with_due_date)
-    )
     mocked_update_order.assert_called_once_with(
         mpt_client,
         order_with_due_date["id"],
@@ -43,11 +39,11 @@ def test_setup_due_date(
 
 @freeze_time("2025-02-01")
 def test_setup_due_date_was_setup(
-    mocker,
-    settings,
-    mocked_next_step,
-    mpt_client,
-    processing_purchase_order,
+        mocker,
+        settings,
+        mocked_next_step,
+        mpt_client,
+        processing_purchase_order,
 ):
     due_date = get_due_date(processing_purchase_order)
     ctx = OrderContext(order=processing_purchase_order)
@@ -55,21 +51,19 @@ def test_setup_due_date_was_setup(
     step = SetupDueDate()
     settings.EXTENSION_CONFIG["DUE_DATE_DAYS"] = 10
 
-    mocked_send_mpt_notification = mocker.patch("ffc.flows.steps.due_date.send_mpt_notification")
     mocked_update_order = mocker.patch("ffc.flows.steps.due_date.update_order")
 
     step(mpt_client, ctx, mocked_next_step)
 
     assert get_due_date(ctx.order) == due_date
-    mocked_send_mpt_notification.assert_not_called()
     mocked_update_order.assert_not_called()
     mocked_next_step.assert_called_once()
 
 
 def test_reset_due_date(
-    mocked_next_step,
-    mpt_client,
-    processing_purchase_order,
+        mocked_next_step,
+        mpt_client,
+        processing_purchase_order,
 ):
     ctx = OrderContext(order=processing_purchase_order)
     step = ResetDueDate()
